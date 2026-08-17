@@ -1,0 +1,36 @@
+{
+  "file": "Flyer PACKAGING (A4 (orizzontale)).pdf",
+  "category": "locandine",
+  "pages": [
+    {
+      "page": 1,
+      "text": "Il packaging di",
+      "extraction_method": "pdf"
+    },
+    {
+      "page": 2,
+      "text": "A B C D E Cod. 0011421   NASTRO AVORIO E ROSSO   - Lunghezza: 25 m; Spessore: 8 mm  Cod. 0011422   NASTRO LOVE RASO ROSSO   - Lunghezza: 15 m; Spessore: 25 mm  Cod. 0011426   NASTRO DOPPIO RASO ROSA BABY   - Lunghezza: 20 m; Spessore: 40 mm  Cod. 0011430   NASTRO CANDY ROSA E BIANCO   - Lunghezza: 15 m; Spessore: 25 mm  Cod. 0011423   NASTRO DOPPIO RASO CIPRIA   - Lunghezza: 100 m; Spessore: 3 mm  A  B  C  D  E  2",
+      "extraction_method": "pdf"
+    },
+    {
+      "page": 3,
+      "text": "3 F G  Cod. 0011425   NASTRO ORGANZA CANNA VERDE  Lunghezza: 50 m; Spessore: 40 mm  Cod. 0011427   NASTRO GLAMOUR ROSA  Lunghezza: 20 m; Spessore: 40 mm  F  G",
+      "extraction_method": "pdf"
+    },
+    {
+      "page": 4,
+      "text": "4 H I J  Cod. 0011429   NASTRO ORGANZA ROSA  Lunghezza: 20 m; Spessore: 25 mm  Cod. 0011424   NASTRO DOPPIO RASO ROSA  Lunghezza: 20 m; Spessore: 40 mm  Cod. 0011428   NASTRO DOPPIO RASO OCRA  Lunghezza: 20 m; Spessore: 40 mm  H  I  J",
+      "extraction_method": "pdf"
+    },
+    {
+      "page": 5,
+      "text": "5  Cod. 0011545   CARTA PELLEAGLIO BIANCA E VERDE   - Lunghezza: 100 m; Altezza: 75 cm K K",
+      "extraction_method": "pdf"
+    },
+    {
+      "page": 6,
+      "text": "",
+      "extraction_method": "pdf-empty"
+    }
+  ]
+}
