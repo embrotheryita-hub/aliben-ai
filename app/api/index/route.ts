@@ -2,16 +2,28 @@ import { NextResponse } from "next/server";
 import { execFile } from "child_process";
 import path from "path";
 
-function runScript(scriptName: string): Promise<string> {
+function runScript(
+  scriptName: "index-knowledge.js" | "create-embeddings.js"
+): Promise<string> {
   return new Promise((resolve, reject) => {
-    const scriptPath = path.join(
-      process.cwd(),
-      "scripts",
-      scriptName
-    );
+    let scriptPath: string;
+
+    if (scriptName === "index-knowledge.js") {
+      scriptPath = path.join(
+        process.cwd(),
+        "scripts",
+        "index-knowledge.js"
+      );
+    } else {
+      scriptPath = path.join(
+        process.cwd(),
+        "scripts",
+        "create-embeddings.js"
+      );
+    }
 
     execFile(
-      "node",
+      process.execPath,
       [scriptPath],
       {
         cwd: process.cwd(),
@@ -19,7 +31,10 @@ function runScript(scriptName: string): Promise<string> {
       },
       (error, stdout, stderr) => {
         if (error) {
-          console.error(`Errore ${scriptName}:`, stderr);
+          console.error(
+            `Errore ${scriptName}:`,
+            stderr
+          );
 
           reject(
             new Error(
@@ -30,7 +45,10 @@ function runScript(scriptName: string): Promise<string> {
           return;
         }
 
-        console.log(`${scriptName}:`);
+        console.log(
+          `${scriptName}:`
+        );
+
         console.log(stdout);
 
         resolve(stdout);
@@ -41,33 +59,62 @@ function runScript(scriptName: string): Promise<string> {
 
 export async function POST() {
   try {
-    console.log("===================================");
-    console.log("AVVIO INDICIZZAZIONE");
-    console.log("===================================");
+    console.log(
+      "==================================="
+    );
 
-    // 1. Estrae i PDF e aggiorna knowledge.json/cache
+    console.log(
+      "AVVIO INDICIZZAZIONE"
+    );
+
+    console.log(
+      "==================================="
+    );
+
+    /*
+      1. Estrae i PDF e aggiorna
+         knowledge-cache
+    */
+
     const knowledgeOutput =
       await runScript(
         "index-knowledge.js"
       );
 
-    // 2. Crea gli embeddings e li salva in SQLite
+    /*
+      2. Crea gli embeddings
+         e aggiorna SQLite
+    */
+
     const embeddingsOutput =
       await runScript(
         "create-embeddings.js"
       );
 
-    console.log("===================================");
-    console.log("INDICIZZAZIONE COMPLETATA");
-    console.log("===================================");
+    console.log(
+      "==================================="
+    );
+
+    console.log(
+      "INDICIZZAZIONE COMPLETATA"
+    );
+
+    console.log(
+      "==================================="
+    );
 
     return NextResponse.json({
       success: true,
+
       message:
         "Knowledge base aggiornata con successo.",
+
       details: {
-        knowledge: knowledgeOutput,
-        embeddings: embeddingsOutput,
+        knowledge:
+          knowledgeOutput,
+
+        embeddings:
+          embeddingsOutput,
       },
     });
 
@@ -80,6 +127,7 @@ export async function POST() {
     return NextResponse.json(
       {
         success: false,
+
         message:
           error instanceof Error
             ? error.message
