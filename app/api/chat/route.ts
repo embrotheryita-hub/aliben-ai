@@ -21,7 +21,110 @@ async function resolveContextualQuery(
   if (!history.length) {
     return message;
   }
+   /*
+    FOLLOW-UP BREVI
 
+    Se il cliente fa una domanda molto breve,
+    cerchiamo nella cronologia il precedente
+    messaggio del CLIENTE che identifica
+    il prodotto/argomento della conversazione.
+
+    Esempio:
+
+    CLIENTE: Mimosa Eska
+    AI: ...
+    CLIENTE: ingredienti?
+
+    QUERY:
+    ingredienti? Mimosa Eska
+  */
+
+  const normalizedMessage =
+    message
+      .toLowerCase()
+      .trim();
+
+  const shortFollowUpPatterns = [
+    /^ingredienti?\??$/,
+    /^allergeni?\??$/,
+    /^dosaggio\??$/,
+    /^dose\??$/,
+    /^dosi\??$/,
+    /^conservazione\??$/,
+    /^caratteristiche\??$/,
+    /^composizione\??$/,
+    /^uso\??$/,
+    /^utilizzo\??$/,
+    /^come si usa\??$/,
+    /^come usarlo\??$/,
+    /^quanto ne devo mettere\??$/,
+    /^procedimento\??$/,
+    /^ricetta\??$/,
+    /^preparazione\??$/,
+    /^valori nutrizionali?\??$/,
+  ];
+
+  const isShortFollowUp =
+    shortFollowUpPatterns.some(
+      (pattern) =>
+        pattern.test(
+          normalizedMessage
+        )
+    );
+
+  if (isShortFollowUp) {
+    const previousUserMessages =
+      history
+        .filter(
+          (item) =>
+            item.role === "user" &&
+            typeof item.content === "string"
+        )
+        .map(
+          (item) =>
+            item.content!.trim()
+        )
+        .filter(Boolean);
+
+    /*
+      La cronologia può contenere anche
+      il messaggio corrente.
+
+      Cerchiamo quindi il precedente messaggio
+      dell'utente, partendo dalla fine e
+      ignorando quello uguale alla richiesta
+      corrente.
+    */
+
+    let previousUserMessage: string | null =
+      null;
+
+    for (
+      let i =
+        previousUserMessages.length - 1;
+      i >= 0;
+      i--
+    ) {
+      const candidate =
+        previousUserMessages[i];
+
+      if (
+        candidate.toLowerCase().trim() ===
+        normalizedMessage
+      ) {
+        continue;
+      }
+
+      previousUserMessage =
+        candidate;
+
+      break;
+    }
+
+    if (previousUserMessage) {
+      return `${message} ${previousUserMessage}`;
+    }
+  }
   const recentHistory =
     history
       .slice(-8)
@@ -187,7 +290,10 @@ export async function POST(req: Request) {
       Array.isArray(body?.history)
         ? body.history
         : [];
-
+console.log(
+  "CHAT HISTORY:",
+  JSON.stringify(history, null, 2)
+);
     if (!message || typeof message !== "string") {
       return NextResponse.json(
         {

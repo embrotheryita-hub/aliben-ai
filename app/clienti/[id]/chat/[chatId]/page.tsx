@@ -5,12 +5,7 @@ import {
   useRef,
   useState,
   type ReactNode,
-} from "react";
-
-import {
-  useParams,
-  useRouter,
-} from "next/navigation";
+} from "react";import { useParams, useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -60,14 +55,14 @@ export default function ClientChatPage() {
   const [error, setError] =
     useState("");
 
-  const messagesEndRef =
-    useRef<HTMLDivElement | null>(null);
-
   const [pdfViewer, setPdfViewer] =
     useState<{
       file: string;
       page: number;
     } | null>(null);
+
+    const messagesEndRef =
+  useRef<HTMLDivElement | null>(null);
 
   /*
   ========================================
@@ -246,6 +241,8 @@ export default function ClientChatPage() {
   */
 
   async function handleSend() {
+    
+
     const text =
       message.trim();
 
@@ -404,6 +401,66 @@ export default function ClientChatPage() {
 
     /*
     ----------------------------------------
+    CRONOLOGIA PER L'AI
+    ----------------------------------------
+    */
+
+    /*
+      Non ci affidiamo solo allo state React "messages":
+      il messaggio appena salvato e la cronologia persistente
+      sono già nel database. Recuperiamo gli ultimi 12 messaggi
+      direttamente da Supabase, così /api/chat riceve sempre
+      il contesto reale della conversazione.
+    */
+
+    const {
+      data: historyData,
+      error: historyError,
+    } = await supabase
+      .from("messages")
+      .select(
+        "role, content, created_at"
+      )
+      .eq(
+        "chat_id",
+        chatId
+      )
+      .eq(
+        "agent_id",
+        user.id
+      )
+      .order(
+        "created_at",
+        {
+          ascending: true,
+        }
+      )
+      .limit(12);
+
+    if (historyError) {
+      console.error(
+        "Errore recupero cronologia AI:",
+        historyError
+      );
+    }
+
+    const history =
+      (historyData || []).map(
+        (item) => ({
+          role:
+            item.role,
+          content:
+            item.content,
+        })
+      );
+
+    console.log(
+      "FRONTEND HISTORY:",
+      history
+    );
+
+    /*
+    ----------------------------------------
     CHIAMATA ALL'AI
     ----------------------------------------
     */
@@ -424,22 +481,7 @@ export default function ClientChatPage() {
               JSON.stringify({
                 message:
                   text,
-
-                history:
-                  messages
-                    .slice(-12)
-                    .map(
-                      (item) => ({
-                        role:
-                          item.role ===
-                          "user"
-                            ? "user"
-                            : "assistant",
-
-                        content:
-                          item.content,
-                      })
-                    ),
+                history,
               }),
           }
         );
@@ -596,6 +638,14 @@ export default function ClientChatPage() {
   function renderMessageContent(
     content: string
   ): ReactNode[] {
+    /*
+      Riconosce citazioni del tipo:
+
+      📄 160- punto coadiuvante.pdf — pagina 1
+      160- punto coadiuvante.pdf — pagina 1
+      **160- punto coadiuvante.pdf** — pagina 1
+    */
+
     const sourceRegex =
       /(?:📄\s*)?(?:\*\*)?([^*\n]+?\.pdf)(?:\*\*)?\s*[—–-]\s*pagina\s+(\d+)/gi;
 
@@ -614,18 +664,12 @@ export default function ClientChatPage() {
         rawPage,
       ] = match;
 
-      const start =
-        match.index;
+      const start = match.index;
 
       if (start > lastIndex) {
         parts.push(
-          <span
-            key={`text-${lastIndex}`}
-          >
-            {content.slice(
-              lastIndex,
-              start
-            )}
+          <span key={`text-${lastIndex}`}>
+            {content.slice(lastIndex, start)}
           </span>
         );
       }
@@ -633,8 +677,7 @@ export default function ClientChatPage() {
       const cleanFileName =
         rawFileName.trim();
 
-      const page =
-        Number(rawPage);
+      const page = Number(rawPage);
 
       parts.push(
         <button
@@ -642,8 +685,7 @@ export default function ClientChatPage() {
           type="button"
           onClick={() => {
             setPdfViewer({
-              file:
-                cleanFileName,
+              file: cleanFileName,
               page,
             });
           }}
@@ -666,21 +708,13 @@ export default function ClientChatPage() {
       );
 
       lastIndex =
-        start +
-        fullMatch.length;
+        start + fullMatch.length;
     }
 
-    if (
-      lastIndex <
-      content.length
-    ) {
+    if (lastIndex < content.length) {
       parts.push(
-        <span
-          key={`text-${lastIndex}`}
-        >
-          {content.slice(
-            lastIndex
-          )}
+        <span key={`text-${lastIndex}`}>
+          {content.slice(lastIndex)}
         </span>
       );
     }

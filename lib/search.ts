@@ -72,6 +72,24 @@ function normalizeText(text: string) {
     .trim();
 }
 
+/*
+  Normalizzazione aggiuntiva per testi OCR/PDF.
+
+  Alcuni PDF vengono estratti con le lettere separate:
+
+  "M I M O S A"
+
+  che deve poter essere riconosciuto anche come:
+
+  "MIMOSA"
+*/
+function normalizeCompactText(text: string) {
+  return normalizeText(text).replace(
+    /\b(?:[a-z]\s+){2,}[a-z]\b/g,
+    (match) => match.replace(/\s+/g, "")
+  );
+}
+
 function getTokens(text: string) {
   return normalizeText(text)
     .split(" ")
@@ -225,6 +243,12 @@ function textMatchScore(
   const normalizedText =
     normalizeText(text);
 
+  const compactQuery =
+    normalizeCompactText(query);
+
+  const compactText =
+    normalizeCompactText(text);
+
   if (
     !normalizedQuery ||
     !normalizedText
@@ -235,46 +259,55 @@ function textMatchScore(
   const queryTokens =
     getTokens(query);
 
-  if (
-    queryTokens.length === 0
-  ) {
+  if (queryTokens.length === 0) {
     return 0;
   }
 
   const textTokens =
-    new Set(
-      getTokens(text)
-    );
+    new Set(getTokens(text));
 
   let matches = 0;
 
-  for (
-    const token of queryTokens
-  ) {
-    if (
-      textTokens.has(token)
-    ) {
+  for (const token of queryTokens) {
+    if (textTokens.has(token)) {
       matches++;
     }
   }
 
   const tokenCoverage =
-    matches /
-    queryTokens.length;
+    matches / queryTokens.length;
 
   /*
-    Bonus per una frase esatta.
+    Controllo anche il testo "compatto"
+    per gestire OCR del tipo:
 
-    Esempio:
+    M I M O S A
 
-    domanda:
-    "ricetta contessa merano"
+    -> MIMOSA
+  */
 
-    pagina:
-    "... ricetta contessa merano ..."
+  const compactQueryTokens =
+    getTokens(compactQuery);
 
-    In questo caso vogliamo una
-    corrispondenza molto forte.
+  let compactMatches = 0;
+
+  const compactTextTokens =
+    new Set(getTokens(compactText));
+
+  for (const token of compactQueryTokens) {
+    if (compactTextTokens.has(token)) {
+      compactMatches++;
+    }
+  }
+
+  const compactCoverage =
+    compactQueryTokens.length > 0
+      ? compactMatches /
+        compactQueryTokens.length
+      : 0;
+
+  /*
+    Bonus per frase esatta.
   */
 
   let exactPhraseScore = 0;
@@ -285,9 +318,7 @@ function textMatchScore(
         !STOP_WORDS.has(token)
     );
 
-  if (
-    meaningfulTokens.length >= 2
-  ) {
+  if (meaningfulTokens.length >= 2) {
     for (
       let i = 0;
       i <
@@ -306,6 +337,9 @@ function textMatchScore(
       if (
         normalizedText.includes(
           phrase
+        ) ||
+        compactText.includes(
+          `${first}${second}`
         )
       ) {
         exactPhraseScore = 1;
@@ -314,18 +348,11 @@ function textMatchScore(
     }
   }
 
-  /*
-    Se troviamo una frase esatta di
-    almeno due parole significative,
-    diamo una priorità molto alta.
-
-    Il massimo del contributo testuale
-    è 0.75.
-  */
-
-  return (
+  return Math.min(
     tokenCoverage * 0.25 +
-    exactPhraseScore * 0.50
+      compactCoverage * 0.20 +
+      exactPhraseScore * 0.50,
+    1
   );
 }
 
@@ -348,26 +375,26 @@ export async function searchKnowledge(
   */
 
   const normalizedQuery =
-    normalizeText(query);
+  normalizeText(query);
 
-  const explicitlyWantsTechnicalSheet =
-    /\\b(scheda tecnica|scheda|specifiche tecniche|caratteristiche tecniche|documentazione tecnica)\\b/
-      .test(normalizedQuery);
+const explicitlyWantsTechnicalSheet =
+  /\b(scheda tecnica|scheda|specifiche tecniche|caratteristiche tecniche|documentazione tecnica)\b/
+    .test(normalizedQuery);
 
-  /*
-    Richieste orientate a prodotti/uso tecnico.
-    Manteniamo questa informazione anche per
-    il ranking, senza renderla equivalente a
-    una prova tecnica di compatibilità.
-  */
+/*
+  Richieste orientate a prodotti/uso tecnico.
+  Manteniamo questa informazione anche per
+  il ranking, senza renderla equivalente a
+  una prova tecnica di compatibilità.
+*/
 
-  const wantsTechnicalProduct =
-    /\\b(prodotto|prodotti|quale prodotto|quali prodotti|consiglia|consigli|consigliami|utilizzare|usare|uso|migliorare|migliora|correttore|miglioratore|emulsionante|enzima|additivo|semilavorato|scheda tecnica|scheda)\\b/
-      .test(normalizedQuery);
+const wantsTechnicalProduct =
+  /\b(prodotto|prodotti|quale prodotto|quali prodotti|consiglia|consigli|consigliami|utilizzare|usare|uso|migliorare|migliora|correttore|miglioratore|emulsionante|enzima|additivo|semilavorato|scheda tecnica|scheda)\b/
+    .test(normalizedQuery);
 
-  const wantsRecipe =
-    /\\b(ricetta|ricette|dose|dosi|dosaggio|ingredienti|impasto|preparazione|preparare|procedimento|come fare|come preparo|grammi|kg|quantita)\\b/
-      .test(normalizedQuery);
+const wantsRecipe =
+  /\b(ricetta|ricette|dose|dosi|dosaggio|ingredienti|impasto|preparazione|preparare|procedimento|come fare|come preparo|grammi|kg|quantita)\b/
+    .test(normalizedQuery);
 
   /*
     ========================================
@@ -469,6 +496,88 @@ export async function searchKnowledge(
           metadata?.product_name ||
           document.file;
 
+          const normalizedFileName =
+  normalizeText(
+    document.file.replace(
+      /\.pdf$/i,
+      ""
+    )
+  );
+
+const normalizedProductName =
+  normalizeText(productName);
+
+const directNameMatch =
+  normalizedFileName.includes(
+    normalizedQuery
+  ) ||
+  normalizedProductName.includes(
+    normalizedQuery
+  );
+
+/*
+  Se la query contiene parole generiche
+  come "ingredienti", "dosaggio", "allergeni",
+  ecc., controlliamo anche se il nome del
+  prodotto/file compare nella parte specifica
+  della query.
+
+  Esempio:
+
+  "ingredienti mimosa eska"
+
+  deve riconoscere:
+
+  prodotto = "mimosa eska"
+  richiesta = "ingredienti"
+*/
+
+const queryTokens =
+  getTokens(query);
+
+const genericRequestWords =
+  new Set([
+    "ingredienti",
+    "ingrediente",
+    "allergeni",
+    "allergene",
+    "dosaggio",
+    "dose",
+    "dosi",
+    "conservazione",
+    "caratteristiche",
+    "composizione",
+    "uso",
+    "utilizzo",
+    "procedimento",
+    "preparazione",
+    "ricetta",
+    "ricette",
+    "grammi",
+    "quantita",
+    "quantità",
+  ]);
+
+const productQueryTokens =
+  queryTokens.filter(
+    (token) =>
+      !genericRequestWords.has(token)
+  );
+
+const productQuery =
+  productQueryTokens.join(" ");
+
+const directProductMatch =
+  productQuery.length > 0 &&
+  (
+    normalizedFileName.includes(
+      productQuery
+    ) ||
+    normalizedProductName.includes(
+      productQuery
+    )
+  );
+
         const nameScore =
           tokenMatchScore(
             query,
@@ -500,11 +609,24 @@ export async function searchKnowledge(
           da passare all'AI.
         */
 
-        let finalScore =
-          semanticScore * 0.80 +
-          nameScore * 0.10 +
-          contentScore * 0.10;
+       let finalScore =
+  semanticScore * 0.80 +
+  nameScore * 0.10 +
+  contentScore * 0.10;
 
+if (directNameMatch) {
+  finalScore = Math.max(
+    finalScore,
+    0.90
+  );
+}
+
+if (directProductMatch) {
+  finalScore = Math.max(
+    finalScore,
+    0.96
+  );
+}
         const category =
           (
             metadata?.category ||
@@ -526,12 +648,13 @@ export async function searchKnowledge(
         }
 
         if (
-          wantsRecipe &&
-          category ===
-            "ricettario"
-        ) {
-          finalScore += 0.10;
-        }
+  wantsRecipe &&
+  category ===
+    "ricettario" &&
+  !directProductMatch
+) {
+  finalScore += 0.10;
+}
 
         if (
           wantsTechnicalProduct &&
