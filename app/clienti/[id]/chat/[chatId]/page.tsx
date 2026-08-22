@@ -241,8 +241,6 @@ export default function ClientChatPage() {
   */
 
   async function handleSend() {
-    
-
     const text =
       message.trim();
 
@@ -405,59 +403,22 @@ export default function ClientChatPage() {
     ----------------------------------------
     */
 
-    /*
-      Non ci affidiamo solo allo state React "messages":
-      il messaggio appena salvato e la cronologia persistente
-      sono già nel database. Recuperiamo gli ultimi 12 messaggi
-      direttamente da Supabase, così /api/chat riceve sempre
-      il contesto reale della conversazione.
-    */
-
-    const {
-      data: historyData,
-      error: historyError,
-    } = await supabase
-      .from("messages")
-      .select(
-        "role, content, created_at"
-      )
-      .eq(
-        "chat_id",
-        chatId
-      )
-      .eq(
-        "agent_id",
-        user.id
-      )
-      .order(
-        "created_at",
-        {
-          ascending: true,
-        }
-      )
-      .limit(12);
-
-    if (historyError) {
-      console.error(
-        "Errore recupero cronologia AI:",
-        historyError
-      );
-    }
-
-    const history =
-      (historyData || []).map(
-        (item) => ({
-          role:
-            item.role,
-          content:
-            item.content,
-        })
-      );
-
-    console.log(
-      "FRONTEND HISTORY:",
-      history
-    );
+    // Usiamo direttamente lo stato della chat gia presente nel browser.
+    // Aggiungiamo anche il messaggio appena inviato, perche setMessages
+    // e asincrono e quindi non e ancora necessariamente presente in
+    // `messages` in questo punto.
+    const history = [
+      ...messages,
+      {
+        role: "user",
+        content: text,
+      },
+    ]
+      .slice(-12)
+      .map((item) => ({
+        role: item.role,
+        content: item.content,
+      }));
 
     /*
     ----------------------------------------
