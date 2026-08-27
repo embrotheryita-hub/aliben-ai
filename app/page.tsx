@@ -495,6 +495,12 @@ export default function Home() {
             },
             body: JSON.stringify({
               message,
+              history: activeChat
+                ? activeChat.messages.map((item) => ({
+                    role: item.role,
+                    content: item.text,
+                  }))
+                : [],
             }),
           }
         );
