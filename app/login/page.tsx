@@ -21,32 +21,107 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const supabase = createClient();
+    console.log("LOGIN: inizio");
+    console.log("LOGIN: email", email);
 
-    const {
-      error,
-    } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const supabase = createClient();
 
-    if (error) {
+      const loginPromise =
+        supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+      const timeoutPromise =
+        new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(
+              new Error(
+                "Il server non ha risposto entro 10 secondi. Controlla la connessione."
+              )
+            );
+          }, 10000);
+        });
+
+      const result =
+        await Promise.race([
+          loginPromise,
+          timeoutPromise,
+        ]);
+
+      console.log(
+        "LOGIN: risposta",
+        result.error
+      );
+
+      if (result.error) {
+        console.error(
+          "SUPABASE LOGIN ERROR:",
+          result.error
+        );
+
+        setError(
+          result.error.message ||
+            "Email o password non corrette."
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      console.log(
+        "LOGIN: autenticazione riuscita"
+      );
+
+      const {
+        data: {
+          session,
+        },
+      } = await supabase.auth.getSession();
+
+      console.log(
+        "LOGIN: sessione",
+        session ? "OK" : "MANCANTE"
+      );
+
+      if (!session) {
+        setError(
+          "Accesso effettuato, ma la sessione non è stata creata. Riprova."
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      console.log(
+        "LOGIN: redirect home"
+      );
+
+      router.replace("/");
+      router.refresh();
+
+    } catch (err) {
       console.error(
-        "SUPABASE LOGIN ERROR:",
-        error
+        "LOGIN: errore generale",
+        err
       );
 
-      setError(
-        error.message ||
+      if (
+        err instanceof Error
+      ) {
+        setError(
+          err.message ||
+            "Errore durante l'accesso."
+        );
+      } else {
+        setError(
           "Errore durante l'accesso."
-      );
+        );
+      }
 
       setLoading(false);
-      return;
     }
-
-    router.push("/");
-    router.refresh();
   }
 
   return (
@@ -64,14 +139,17 @@ export default function LoginPage() {
             <div className="flex items-center gap-4">
 
               <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-[#f5e5e2]">
+
                 <img
                   src="/aliben-ai-mascot.png"
                   alt="ALIBEN AI"
                   className="h-14 w-14 object-contain"
                 />
+
               </div>
 
               <div>
+
                 <div className="text-3xl font-black tracking-tight">
                   ALIBEN
                 </div>
@@ -79,6 +157,7 @@ export default function LoginPage() {
                 <div className="-mt-1 text-lg font-bold text-[#c43a3f]">
                   AI
                 </div>
+
               </div>
 
             </div>
@@ -126,14 +205,17 @@ export default function LoginPage() {
             <div className="mb-10 flex items-center justify-center gap-3 lg:hidden">
 
               <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-[#f5e5e2]">
+
                 <img
                   src="/aliben-ai-mascot.png"
                   alt="ALIBEN AI"
                   className="h-12 w-12 object-contain"
                 />
+
               </div>
 
               <div>
+
                 <div className="text-2xl font-black">
                   ALIBEN
                 </div>
@@ -141,6 +223,7 @@ export default function LoginPage() {
                 <div className="-mt-1 font-bold text-[#a51d20]">
                   AI
                 </div>
+
               </div>
 
             </div>
@@ -178,7 +261,9 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) =>
-                    setEmail(e.target.value)
+                    setEmail(
+                      e.target.value
+                    )
                   }
                   placeholder="nome@aliben.it"
                   autoComplete="email"
