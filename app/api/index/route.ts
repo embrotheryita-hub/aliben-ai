@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { execFile } from "child_process";
 import path from "path";
-
+import { createClient } from "@/lib/supabase/server";
 function runScript(
   scriptName: "index-knowledge.js" | "create-embeddings.js"
 ): Promise<string> {
@@ -59,6 +59,45 @@ function runScript(
 
 export async function POST() {
   try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Non autorizzato.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (
+      !profile ||
+      !["admin", "agent"].includes(profile.role)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Accesso negato.",
+        },
+        {
+          status: 403,
+        }
+      );
+    }
+
     console.log(
       "==================================="
     );

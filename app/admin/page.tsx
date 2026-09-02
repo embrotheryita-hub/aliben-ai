@@ -1,9 +1,13 @@
 "use client";
+
 import {
   useEffect,
   useRef,
   useState,
 } from "react";
+
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import MobileHomeButton from "@/components/MobileHomeButton";
 type Stats = {
   pdf: number;
@@ -45,6 +49,39 @@ const categories = [
 ];
 
 export default function AdminPage() {
+  const router = useRouter();
+const [checkingAccess, setCheckingAccess] =
+  useState(true);
+  useEffect(() => {
+  async function checkAdminAccess() {
+    const supabase = createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
+    const { data: profile, error } =
+      await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+    if (error || profile?.role !== "admin") {
+      router.replace("/");
+      return;
+    }
+
+    setCheckingAccess(false);
+  }
+
+  checkAdminAccess();
+}, [router]);
   const fileInputRef =
     useRef<HTMLInputElement>(null);
 
@@ -543,6 +580,16 @@ export default function AdminPage() {
         );
       }
     );
+if (checkingAccess) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-gray-100">
+      <div className="text-sm font-medium text-gray-500">
+        Controllo accesso...
+      </div>
+    </main>
+  );
+}
+
 
   return (
     <main className="min-h-screen bg-gray-100 p-8">

@@ -1,8 +1,47 @@
 import { NextResponse } from "next/server";
 import db from "@/lib/database";
-
+import { createClient } from "@/lib/supabase/server";
 export async function GET() {
   try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Non autorizzato.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (
+      !profile ||
+      !["admin", "agent"].includes(profile.role)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Accesso negato.",
+        },
+        {
+          status: 403,
+        }
+      );
+    }
+
     const stats = db
       .prepare(`
         SELECT

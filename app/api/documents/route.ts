@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import db from "@/lib/database";
-
+import { createClient } from "@/lib/supabase/server";
 const categories = [
   "scheda-tecnica",
   "schede-tecniche",
@@ -11,7 +11,44 @@ const categories = [
   "manuale",
   "altro",
 ];
+async function checkAdminAccess() {
+  const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      allowed: false,
+      status: 401,
+      message: "Non autorizzato.",
+    };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (
+    !profile ||
+    !["admin", "agent"].includes(profile.role)
+  ) {
+    return {
+      allowed: false,
+      status: 403,
+      message: "Accesso negato.",
+    };
+  }
+
+  return {
+    allowed: true,
+    status: 200,
+    message: "",
+  };
+}
 function findPdfFiles(
   folder: string,
   relativeFolder = ""
@@ -88,22 +125,34 @@ export async function GET(
   req: Request
 ) {
   try {
-    const url = new URL(
-      req.url
-    );
+    const access = await checkAdminAccess();
 
-    const requestedFile =
-      url.searchParams.get(
-        "file"
-      );
+if (!access.allowed) {
+  return NextResponse.json(
+    {
+      success: false,
+      message: access.message,
+    },
+    {
+      status: access.status,
+    }
+  );
+}
 
-    /*
-    ----------------------------------------
-    APERTURA PDF
-    ----------------------------------------
-    */
+const url = new URL(
+  req.url
+);
 
-    if (requestedFile) {
+const requestedFile =
+  url.searchParams.get("file");
+
+/*
+----------------------------------------
+APERTURA PDF
+----------------------------------------
+*/
+
+if (requestedFile) {
       const safeFileName =
         path.basename(
           requestedFile
@@ -373,9 +422,22 @@ export async function PATCH(
   req: Request
 ) {
   try {
+    const access = await checkAdminAccess();
+
+    if (!access.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: access.message,
+        },
+        {
+          status: access.status,
+        }
+      );
+    }
+
     const body =
       await req.json();
-
     const file =
       body.file;
 
@@ -654,6 +716,20 @@ export async function DELETE(
   req: Request
 ) {
   try {
+    const access = await checkAdminAccess();
+
+    if (!access.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: access.message,
+        },
+        {
+          status: access.status,
+        }
+      );
+    }
+
     const { file } =
       await req.json();
 
