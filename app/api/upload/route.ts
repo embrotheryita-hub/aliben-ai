@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import db from "@/lib/database";
-
+import { createClient } from "@/lib/supabase/server";
 const allowedCategories = [
   "scheda-tecnica",
   "catalogo",
@@ -13,6 +13,42 @@ const allowedCategories = [
 
 export async function POST(req: Request) {
   try {
+        const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          message: "Non autorizzato.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (
+      !profile ||
+      !["admin", "agent"].includes(profile.role)
+    ) {
+      return NextResponse.json(
+        {
+          message: "Accesso negato.",
+        },
+        {
+          status: 403,
+        }
+      );
+    }
     const formData =
       await req.formData();
 

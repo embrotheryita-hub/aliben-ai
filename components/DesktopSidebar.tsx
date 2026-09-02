@@ -1,10 +1,36 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export default function DesktopSidebar() {
   const router = useRouter();
   const pathname = usePathname();
+
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    async function loadProfile() {
+      const supabase = createClient();
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      setIsAdmin(profile?.role === "admin");
+    }
+
+    loadProfile();
+  }, []);
 
   const items = [
     {
@@ -17,11 +43,15 @@ export default function DesktopSidebar() {
       icon: "👥",
       path: "/clienti",
     },
-    {
-      label: "Admin",
-      icon: "⚙️",
-      path: "/admin",
-    },
+    ...(isAdmin
+      ? [
+          {
+            label: "Admin",
+            icon: "⚙️",
+            path: "/admin",
+          },
+        ]
+      : []),
     {
       label: "Instagram",
       icon: "📸",
@@ -31,7 +61,7 @@ export default function DesktopSidebar() {
 
   return (
     <aside className="hidden w-[210px] shrink-0 flex-col bg-[#211f1d] px-4 py-5 md:flex">
-      
+
       {/* LOGO */}
       <button
         type="button"
