@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import MobileHomeButton from "@/components/MobileHomeButton";
 import { createClient } from "@/lib/supabase/client";
-
+import DesktopSidebar from "@/components/DesktopSidebar";
 type Client = {
   id: string;
   company_name: string;
@@ -427,69 +427,11 @@ export default function ClientsPage() {
 
       <div className="flex min-h-screen">
 
-        {/* =====================================
-            MINI SIDEBAR
-        ===================================== */}
+       {/* =====================================
+    SIDEBAR DESKTOP
+===================================== */}
 
-        <aside className="hidden w-[72px] shrink-0 flex-col items-center bg-[#211f1d] py-5 md:flex">
-
-          <button
-            onClick={() =>
-              router.push("/")
-            }
-            className="mb-8 flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-white shadow"
-          >
-            <img
-              src="/aliben-ai-mascot.png"
-              alt="ALIBEN AI"
-              className="h-10 w-10 object-contain"
-            />
-          </button>
-
-          <div className="flex flex-1 flex-col items-center gap-3">
-
-            <button
-              onClick={() =>
-                router.push("/")
-              }
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-xl text-white/70 transition hover:bg-white/10 hover:text-white"
-              title="Chat"
-            >
-              💬
-            </button>
-
-            <button
-              className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#a51d20] text-xl text-white shadow"
-              title="Clienti"
-            >
-              👥
-            </button>
-
-            <button
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-xl text-white/70 transition hover:bg-white/10 hover:text-white"
-              title="Knowledge"
-            >
-              📖
-            </button>
-
-            <button
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-xl text-white/70 transition hover:bg-white/10 hover:text-white"
-              title="Documenti"
-            >
-              🗂️
-            </button>
-
-            <button
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-xl text-white/70 transition hover:bg-white/10 hover:text-white"
-              title="Impostazioni"
-            >
-              ⚙️
-            </button>
-
-          </div>
-
-        </aside>
-
+<DesktopSidebar />
         {/* =====================================
             AREA PRINCIPALE
         ===================================== */}
@@ -795,7 +737,7 @@ export default function ClientsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8">
 
 <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl bg-white pb-24 shadow-2xl md:pb-0">
-  
+
             <div className="flex items-center justify-between border-b border-[#e8e3dd] px-6 py-5">
 
               <div>

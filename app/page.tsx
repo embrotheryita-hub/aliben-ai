@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
+import DesktopSidebar from "@/components/DesktopSidebar";
 import Header from "@/components/Header";
 import SearchBox from "@/components/SearchBox";
 import QuickActions from "@/components/QuickActions";
@@ -570,90 +570,7 @@ export default function Home() {
             MINI SIDEBAR
         ===================================== */}
 
-        <aside className="hidden w-[190px] shrink-0 flex-col bg-[#211f1d] px-3 py-5 md:flex">
-
-          <div className="mb-8 flex items-center justify-center">
-
-            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-white shadow">
-
-              <img
-                src="/aliben-ai-mascot.png"
-                alt="ALIBEN AI"
-                className="h-11 w-11 object-contain"
-              />
-
-            </div>
-
-          </div>
-
-          <div className="flex flex-1 flex-col gap-2">
-
-            <button
-              type="button"
-              className="flex h-12 w-full items-center rounded-xl bg-[#a51d20] px-4 text-left text-sm font-bold text-white shadow"
-              title="Chat"
-            >
-              <span className="mr-3 text-lg">
-                💬
-              </span>
-
-              CHAT
-            </button>
-
-            <button
-              type="button"
-              className="flex h-12 w-full items-center rounded-xl px-4 text-left text-sm font-semibold text-white/70 transition hover:bg-white/10 hover:text-white"
-              title="Knowledge base"
-            >
-              <span className="mr-3 text-lg">
-                📖
-              </span>
-
-              KNOWLEDGE
-            </button>
-
-            <button
-              type="button"
-              className="flex h-12 w-full items-center rounded-xl px-4 text-left text-sm font-semibold text-white/70 transition hover:bg-white/10 hover:text-white"
-              title="Documenti"
-            >
-              <span className="mr-3 text-lg">
-                🗂️
-              </span>
-
-              DOCUMENTI
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                router.push("/clienti")
-              }
-              className="flex h-12 w-full items-center rounded-xl px-4 text-left text-sm font-semibold text-white/70 transition hover:bg-white/10 hover:text-white"
-              title="Clienti"
-            >
-              <span className="mr-3 text-lg">
-                👥
-              </span>
-
-              CLIENTI
-            </button>
-
-            <button
-              type="button"
-              className="flex h-12 w-full items-center rounded-xl px-4 text-left text-sm font-semibold text-white/70 transition hover:bg-white/10 hover:text-white"
-              title="Impostazioni"
-            >
-              <span className="mr-3 text-lg">
-                ⚙️
-              </span>
-
-              IMPOSTAZIONI
-            </button>
-
-          </div>
-
-        </aside>
+<DesktopSidebar />
 
         {/* =====================================
             SIDEBAR CHAT
