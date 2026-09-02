@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+
 import DesktopSidebar from "@/components/DesktopSidebar";
 import Header from "@/components/Header";
 import SearchBox from "@/components/SearchBox";
@@ -13,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 type Message = {
   role: "user" | "assistant";
   text: string;
+  image?: string;
 };
 
 type Chat = {
@@ -61,20 +63,19 @@ export default function Home() {
 
   /*
   ========================================
-  CONTROLLO UTENTE + PROFILO
+  CONTROLLO DOCUMENTI
   ========================================
   */
 
   useEffect(() => {
     async function loadDocumentCount() {
       try {
-        const response =
-          await fetch(
-            "/api/stats",
-            {
-              cache: "no-store",
-            }
-          );
+        const response = await fetch(
+          "/api/stats",
+          {
+            cache: "no-store",
+          }
+        );
 
         if (!response.ok) {
           throw new Error(
@@ -101,9 +102,16 @@ export default function Home() {
     loadDocumentCount();
   }, []);
 
+  /*
+  ========================================
+  CARICAMENTO PROFILO
+  ========================================
+  */
+
   useEffect(() => {
     async function loadAgentProfile() {
-      const supabase = createClient();
+      const supabase =
+        createClient();
 
       const {
         data: {
@@ -205,6 +213,7 @@ export default function Home() {
       createChat();
 
     setChats([firstChat]);
+
     setActiveChatId(
       firstChat.id
     );
@@ -303,9 +312,7 @@ export default function Home() {
       activeChat.title
     );
 
-    setIsEditingTitle(
-      true
-    );
+    setIsEditingTitle(true);
   }
 
   function saveTitle() {
@@ -328,9 +335,7 @@ export default function Home() {
       )
     );
 
-    setIsEditingTitle(
-      false
-    );
+    setIsEditingTitle(false);
   }
 
   /*
@@ -401,9 +406,7 @@ export default function Home() {
 
     await supabase.auth.signOut();
 
-    router.push(
-      "/login"
-    );
+    router.push("/login");
 
     router.refresh();
   }
@@ -415,28 +418,39 @@ export default function Home() {
   */
 
   async function handleSend(
-    message: string
+    message: string,
+    image?: string
   ) {
     if (
-      !message.trim() ||
+      (!message.trim() && !image) ||
       !activeChatId ||
       isTyping
     ) {
       return;
     }
 
-    const userMessage: Message =
-      {
-        role: "user",
-        text: message,
-      };
+    const userMessage: Message = {
+      role: "user",
+
+      text:
+        message.trim() ||
+        "Analizza questo prodotto e trovami l'alternativa ALIBEN più pertinente.",
+
+      image,
+    };
+
+    /*
+    ========================================
+    AGGIUNGI MESSAGGIO ALLA CHAT
+    ========================================
+    */
 
     setChats((prev) =>
       prev.map((chat) =>
-        chat.id ===
-        activeChatId
+        chat.id === activeChatId
           ? {
               ...chat,
+
               messages: [
                 ...chat.messages,
                 userMessage,
@@ -467,11 +481,12 @@ export default function Home() {
         ) {
           return {
             ...chat,
+
             title:
               message
                 .trim()
                 .slice(0, 40) ||
-              "Nuova chat",
+              "Analisi prodotto",
           };
         }
 
@@ -479,38 +494,66 @@ export default function Home() {
       })
     );
 
-    setIsTyping(
-      true
-    );
+    setIsTyping(true);
 
     try {
+      /*
+      ========================================
+      CHIAMATA API CHAT
+      ========================================
+      */
+
       const response =
         await fetch(
           "/api/chat",
           {
             method: "POST",
+
             headers: {
               "Content-Type":
                 "application/json",
             },
+
             body: JSON.stringify({
               message,
-              history: activeChat
-                ? activeChat.messages.map((item) => ({
-                    role: item.role,
-                    content: item.text,
-                  }))
-                : [],
+
+              image,
+
+              history:
+                activeChat
+                  ? activeChat.messages.map(
+                      (item) => ({
+                        role:
+                          item.role,
+
+                        content:
+                          item.text,
+                      })
+                    )
+                  : [],
             }),
           }
         );
 
+      if (!response.ok) {
+        throw new Error(
+          "Errore nella risposta del server."
+        );
+      }
+
       const data =
         await response.json();
 
-      const assistantMessage: Message =
-        {
+      /*
+      ========================================
+      RISPOSTA AI
+      ========================================
+      */
+
+      const assistantMessage:
+        Message = {
           role: "assistant",
+
           text:
             data.reply ||
             "Non ho ricevuto una risposta.",
@@ -522,6 +565,7 @@ export default function Home() {
           activeChatId
             ? {
                 ...chat,
+
                 messages: [
                   ...chat.messages,
                   assistantMessage,
@@ -542,10 +586,14 @@ export default function Home() {
           activeChatId
             ? {
                 ...chat,
+
                 messages: [
                   ...chat.messages,
+
                   {
-                    role: "assistant",
+                    role:
+                      "assistant",
+
                     text:
                       "Errore durante la risposta.",
                   },
@@ -554,23 +602,21 @@ export default function Home() {
             : chat
         )
       );
+    } finally {
+      setIsTyping(false);
     }
-
-    setIsTyping(
-      false
-    );
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f5f2] text-[#171717] md:h-screen md:overflow-hidden">
+    <main className="h-[100dvh] overflow-hidden bg-[#f7f5f2] text-[#171717]">
 
-      <div className="flex min-h-screen flex-col md:h-screen md:flex-row md:overflow-hidden">
+      <div className="flex h-full flex-col md:flex-row md:overflow-hidden">
 
         {/* =====================================
             MINI SIDEBAR
         ===================================== */}
 
-<DesktopSidebar />
+        <DesktopSidebar />
 
         {/* =====================================
             SIDEBAR CHAT
@@ -816,7 +862,7 @@ export default function Home() {
             AREA PRINCIPALE
         ===================================== */}
 
-        <section className="flex min-h-screen min-w-0 flex-1 flex-col md:h-screen md:overflow-hidden">
+        <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
 
           {/* =====================================
               TOP BAR
@@ -882,73 +928,86 @@ export default function Home() {
           </header>
 
           {/* =====================================
-              MOBILE
-          ===================================== */}
+    MOBILE
+===================================== */}
 
-          <div className="shrink-0 border-b border-[#e8e3dd] bg-white px-3 py-2.5 md:hidden">
+<div className="shrink-0 border-b border-[#e8e3dd] bg-white px-2 py-2 md:hidden">
 
-            <div className="grid grid-cols-2 gap-2">
+  <div className="flex w-full items-center gap-1 overflow-x-auto">
 
-              <button
-                type="button"
-                onClick={() => router.push("/")}
-                className="flex min-h-11 items-center justify-center rounded-xl border border-[#e8e3dd] bg-white px-3 py-2.5 text-sm font-bold text-gray-700 shadow-sm"
-              >
-                🏠 Home
-              </button>
+    <button
+      type="button"
+      onClick={() =>
+        router.push("/")
+      }
+      className="flex h-10 shrink-0 items-center justify-center rounded-lg border border-[#e8e3dd] bg-white px-2.5 text-xs font-bold text-gray-700 shadow-sm"
+    >
+      🏠 Home
+    </button>
 
-              <button
-                type="button"
-                onClick={handleNewChat}
-                disabled={isTyping}
-                className="flex min-h-11 items-center justify-center rounded-xl bg-[#a51d20] px-3 py-2.5 text-sm font-bold text-white shadow-sm disabled:opacity-50"
-              >
-                ＋ Chat
-              </button>
+    <button
+      type="button"
+      onClick={handleNewChat}
+      disabled={isTyping}
+      className="flex h-10 shrink-0 items-center justify-center rounded-lg bg-[#a51d20] px-2.5 text-xs font-bold text-white shadow-sm disabled:opacity-50"
+    >
+      ＋ Chat
+    </button>
 
-              <button
-                type="button"
-                onClick={() => router.push("/clienti")}
-                className="flex min-h-11 items-center justify-center rounded-xl border border-[#e8e3dd] bg-white px-3 py-2.5 text-sm font-bold text-gray-700 shadow-sm"
-              >
-                👥 Clienti
-              </button>
+    <button
+      type="button"
+      onClick={() =>
+        router.push("/clienti")
+      }
+      className="flex h-10 shrink-0 items-center justify-center rounded-lg border border-[#e8e3dd] bg-white px-2.5 text-xs font-bold text-gray-700 shadow-sm"
+    >
+      👥 Clienti
+    </button>
 
-              <button
-                type="button"
-                onClick={() => router.push("/admin")}
-                className="flex min-h-11 items-center justify-center rounded-xl border border-[#e8e3dd] bg-white px-3 py-2.5 text-sm font-bold text-gray-700 shadow-sm"
-              >
-                ⚙️ Admin
-              </button>
+    <button
+      type="button"
+      onClick={() =>
+        router.push("/admin")
+      }
+      className="flex h-10 shrink-0 items-center justify-center rounded-lg border border-[#e8e3dd] bg-white px-2.5 text-xs font-bold text-gray-700 shadow-sm"
+    >
+      ⚙️ Admin
+    </button>
 
-              <button
-                type="button"
-                onClick={() => router.push("/instagram")}
-                className="flex min-h-11 items-center justify-center rounded-xl border border-[#e8e3dd] bg-white px-3 py-2.5 text-sm font-bold text-gray-700 shadow-sm"
-              >
-                📸 Instagram
-              </button>
+    <button
+      type="button"
+      onClick={() =>
+        router.push("/instagram")
+      }
+      className="flex h-10 shrink-0 items-center justify-center rounded-lg border border-[#e8e3dd] bg-white px-2.5 text-xs font-bold text-gray-700 shadow-sm"
+    >
+      📸 Instagram
+    </button>
 
-            </div>
+  </div>
 
-            <div className="mt-2">
-              <select
-                value={activeChatId || ""}
-                onChange={(event) =>
-                  handleSelectChat(event.target.value)
-                }
-                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm font-semibold text-gray-800 outline-none shadow-sm"
-              >
-                {chats.map((chat) => (
-                  <option key={chat.id} value={chat.id}>
-                    {chat.title}
-                  </option>
-                ))}
-              </select>
-            </div>
+  <div className="mt-2">
+    <select
+      value={activeChatId || ""}
+      onChange={(event) =>
+        handleSelectChat(
+          event.target.value
+        )
+      }
+      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-800 outline-none shadow-sm"
+    >
+      {chats.map((chat) => (
+        <option
+          key={chat.id}
+          value={chat.id}
+        >
+          {chat.title}
+        </option>
+      ))}
+    </select>
+  </div>
 
-          </div>
+</div>
 
           {/* =====================================
               CHAT HEADER
@@ -1092,10 +1151,13 @@ export default function Home() {
             style={{
               backgroundImage:
                 "linear-gradient(rgba(247,245,242,0.20), rgba(247,245,242,0.20)), url('/aliben-chat-bg.png')",
+
               backgroundSize:
                 "cover",
+
               backgroundPosition:
                 "center",
+
               backgroundRepeat:
                 "no-repeat",
             }}
@@ -1130,6 +1192,9 @@ export default function Home() {
                           text={
                             message.text
                           }
+                          image={
+                            message.image
+                          }
                         />
                       )
                     )}
@@ -1155,9 +1220,11 @@ export default function Home() {
                       </h2>
 
                       <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-gray-500 sm:mt-3 sm:text-[15px] sm:leading-7">
-                        Chiedimi informazioni su prodotti,
-                        dosaggi, ricette, ingredienti,
-                        cataloghi e soluzioni tecniche ALIBEN.
+                        Chiedimi informazioni
+                        su prodotti, dosaggi,
+                        ricette, ingredienti,
+                        cataloghi e soluzioni
+                        tecniche ALIBEN.
                       </p>
 
                     </div>
@@ -1187,42 +1254,6 @@ export default function Home() {
                   !activeChat
                 }
               />
-
-              <div className="mt-2 overflow-x-auto pb-1 sm:mt-3">
-                <QuickActions />
-              </div>
-
-              <div className="mt-2 hidden text-center text-[10px] text-gray-400 sm:block">
-                ALIBEN AI può commettere errori.
-                Verifica sempre le informazioni importanti.
-              </div>
-
-            </div>
-
-          </div>
-
-          <div className="hidden shrink-0 border-t border-[#e8e3dd] bg-white px-6 py-4 lg:block lg:px-10">
-
-            <div className="mx-auto flex max-w-5xl justify-end">
-
-              <div className="rounded-2xl border border-[#ead9d6] bg-[#fff8f7] px-5 py-3 text-right shadow-sm">
-
-                <div className="text-xs font-semibold text-gray-500">
-                  Per qualsiasi altra cosa,
-                </div>
-
-                <div className="text-sm font-bold text-[#171717]">
-                  chiama il nostro tecnico Roberto
-                </div>
-
-                <a
-                  href="tel:3666093385"
-                  className="mt-1 inline-flex items-center gap-2 text-base font-black text-[#a51d20] hover:underline"
-                >
-                  📞 366 609 3385
-                </a>
-
-              </div>
 
             </div>
 
