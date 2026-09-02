@@ -562,9 +562,9 @@ export default function Home() {
   }
 
   return (
-    <main className="h-screen overflow-hidden bg-[#f7f5f2] text-[#171717]">
+    <main className="min-h-screen bg-[#f7f5f2] text-[#171717] md:h-screen md:overflow-hidden">
 
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex min-h-screen flex-col md:h-screen md:flex-row md:overflow-hidden">
 
         {/* =====================================
             MINI SIDEBAR
@@ -689,7 +689,7 @@ export default function Home() {
 
             </div>
 
-            <div className="mt-3">
+            <div className="mt-2 sm:mt-3">
 
               <div className="text-sm font-bold">
                 Il tuo assistente tecnico e commerciale
@@ -899,17 +899,17 @@ export default function Home() {
             AREA PRINCIPALE
         ===================================== */}
 
-        <section className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
+        <section className="flex min-h-screen min-w-0 flex-1 flex-col md:h-screen md:overflow-hidden">
 
           {/* =====================================
               TOP BAR
           ===================================== */}
 
-          <header className="flex h-[94px] shrink-0 items-center justify-between border-b border-[#e8e3dd] bg-white px-6 lg:px-10">
+          <header className="flex min-h-[68px] shrink-0 items-center justify-between border-b border-[#e8e3dd] bg-white px-3 py-3 sm:px-6 lg:h-[94px] lg:px-10">
 
             <div>
 
-              <div className="text-lg font-bold">
+              <div className="text-[13px] font-bold sm:text-lg">
                 Il tuo assistente tecnico e commerciale
               </div>
 
@@ -968,44 +968,68 @@ export default function Home() {
               MOBILE
           ===================================== */}
 
-          <div className="shrink-0 border-b border-[#e8e3dd] bg-white p-4 md:hidden">
+          <div className="shrink-0 border-b border-[#e8e3dd] bg-white px-3 py-2.5 md:hidden">
 
-            <button
-              onClick={
-                handleNewChat
-              }
-              disabled={
-                isTyping
-              }
-              className="w-full rounded-xl bg-[#a51d20] px-4 py-3 text-sm font-bold text-white"
-            >
-              ＋ Nuova chat
-            </button>
+            <div className="grid grid-cols-2 gap-2">
 
-            <select
-              value={
-                activeChatId || ""
-              }
-              onChange={(event) =>
-                handleSelectChat(
-                  event.target.value
-                )
-              }
-              className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-3 text-sm"
-            >
+              <button
+                type="button"
+                onClick={() => router.push("/")}
+                className="flex min-h-11 items-center justify-center rounded-xl border border-[#e8e3dd] bg-white px-3 py-2.5 text-sm font-bold text-gray-700 shadow-sm"
+              >
+                🏠 Home
+              </button>
 
-              {chats.map(
-                (chat) => (
-                  <option
-                    key={chat.id}
-                    value={chat.id}
-                  >
+              <button
+                type="button"
+                onClick={handleNewChat}
+                disabled={isTyping}
+                className="flex min-h-11 items-center justify-center rounded-xl bg-[#a51d20] px-3 py-2.5 text-sm font-bold text-white shadow-sm disabled:opacity-50"
+              >
+                ＋ Chat
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push("/clienti")}
+                className="flex min-h-11 items-center justify-center rounded-xl border border-[#e8e3dd] bg-white px-3 py-2.5 text-sm font-bold text-gray-700 shadow-sm"
+              >
+                👥 Clienti
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push("/admin")}
+                className="flex min-h-11 items-center justify-center rounded-xl border border-[#e8e3dd] bg-white px-3 py-2.5 text-sm font-bold text-gray-700 shadow-sm"
+              >
+                ⚙️ Admin
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push("/instagram")}
+                className="flex min-h-11 items-center justify-center rounded-xl border border-[#e8e3dd] bg-white px-3 py-2.5 text-sm font-bold text-gray-700 shadow-sm"
+              >
+                📸 Instagram
+              </button>
+
+            </div>
+
+            <div className="mt-2">
+              <select
+                value={activeChatId || ""}
+                onChange={(event) =>
+                  handleSelectChat(event.target.value)
+                }
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm font-semibold text-gray-800 outline-none shadow-sm"
+              >
+                {chats.map((chat) => (
+                  <option key={chat.id} value={chat.id}>
                     {chat.title}
                   </option>
-                )
-              )}
-
-            </select>
+                ))}
+              </select>
+            </div>
 
           </div>
 
@@ -1013,18 +1037,18 @@ export default function Home() {
               CHAT HEADER
           ===================================== */}
 
-          <div className="shrink-0 border-b border-[#e8e3dd] bg-white px-6 py-5 lg:px-10">
+          <div className="shrink-0 border-b border-[#e8e3dd] bg-white px-3 py-3 sm:px-6 sm:py-5 lg:px-10">
 
             <div className="mx-auto flex max-w-5xl items-center justify-between">
 
               <div className="flex min-w-0 items-center gap-4">
 
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f5e5e2]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f5e5e2] sm:h-14 sm:w-14">
 
                   <img
                     src="/aliben-ai-mascot.png"
                     alt="ALIBEN AI"
-                    className="h-12 w-12 object-contain"
+                    className="h-10 w-10 object-contain sm:h-12 sm:w-12"
                   />
 
                 </div>
@@ -1086,9 +1110,9 @@ export default function Home() {
                   ) : (
 
                     <>
-                      <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
 
-                        <h1 className="truncate text-xl font-black">
+                        <h1 className="truncate text-base font-black sm:text-xl">
                           {activeChat?.title ||
                             "Nuova chat"}
                         </h1>
@@ -1147,7 +1171,7 @@ export default function Home() {
           ===================================== */}
 
           <div
-            className="min-h-0 flex-1 overflow-y-auto px-4 py-6 lg:px-10"
+            className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-6 lg:px-10"
             style={{
               backgroundImage:
                 "linear-gradient(rgba(247,245,242,0.20), rgba(247,245,242,0.20)), url('/aliben-chat-bg.png')",
@@ -1160,7 +1184,7 @@ export default function Home() {
             }}
           >
 
-            <div className="mx-auto w-full max-w-5xl">
+            <div className="mx-auto w-full max-w-5xl px-0.5 sm:px-0">
 
               <div className="flex flex-col gap-5">
 
@@ -1199,21 +1223,21 @@ export default function Home() {
                 activeChat.messages.length ===
                   0 && (
 
-                  <div className="flex min-h-[430px] items-center justify-center">
+                  <div className="flex min-h-[220px] items-center justify-center px-3 py-8 sm:min-h-[430px]">
 
                     <div className="text-center">
 
                       <img
                         src="/aliben-ai-mascot.png"
                         alt="ALIBEN AI"
-                        className="mx-auto mb-8 h-44 w-44 object-contain drop-shadow-sm"
+                        className="mx-auto mb-5 h-28 w-28 object-contain drop-shadow-sm sm:mb-8 sm:h-44 sm:w-44"
                       />
 
-                      <h2 className="text-3xl font-black tracking-tight text-[#171717]">
+                      <h2 className="text-2xl font-black tracking-tight text-[#171717] sm:text-3xl">
                         Come posso aiutarti?
                       </h2>
 
-                      <p className="mx-auto mt-3 max-w-xl text-[15px] leading-7 text-gray-500">
+                      <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-gray-500 sm:mt-3 sm:text-[15px] sm:leading-7">
                         Chiedimi informazioni su prodotti,
                         dosaggi, ricette, ingredienti,
                         cataloghi e soluzioni tecniche ALIBEN.
@@ -1233,7 +1257,7 @@ export default function Home() {
               INPUT
           ===================================== */}
 
-          <div className="shrink-0 border-t border-[#e8e3dd] bg-white px-4 py-4 lg:px-10">
+          <div className="shrink-0 border-t border-[#e8e3dd] bg-white px-3 py-3 sm:px-4 sm:py-4 lg:px-10">
 
             <div className="mx-auto max-w-5xl">
 
@@ -1247,11 +1271,11 @@ export default function Home() {
                 }
               />
 
-              <div className="mt-3">
+              <div className="mt-2 overflow-x-auto pb-1 sm:mt-3">
                 <QuickActions />
               </div>
 
-              <div className="mt-3 text-center text-[10px] text-gray-400">
+              <div className="mt-2 hidden text-center text-[10px] text-gray-400 sm:block">
                 ALIBEN AI può commettere errori.
                 Verifica sempre le informazioni importanti.
               </div>
@@ -1260,7 +1284,7 @@ export default function Home() {
 
           </div>
 
-          <div className="shrink-0 border-t border-[#e8e3dd] bg-white px-6 py-4 lg:px-10">
+          <div className="hidden shrink-0 border-t border-[#e8e3dd] bg-white px-6 py-4 lg:block lg:px-10">
 
             <div className="mx-auto flex max-w-5xl justify-end">
 

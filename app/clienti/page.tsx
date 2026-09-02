@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
+import MobileHomeButton from "@/components/MobileHomeButton";
 import { createClient } from "@/lib/supabase/client";
 
 type Client = {
@@ -1010,6 +1010,8 @@ export default function ClientsPage() {
 
         </div>
       )}
+
+<MobileHomeButton />
 
     </main>
   );
