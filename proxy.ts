@@ -7,88 +7,91 @@ import {
 export async function proxy(
   request: NextRequest
 ) {
-  let response =
-    NextResponse.next({
-      request,
-    });
+  let response = NextResponse.next({
+    request,
+  });
 
-  const supabase =
-    createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll();
-          },
-
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(
-              ({
-                name,
-                value,
-              }) => {
-                request.cookies.set(
-                  name,
-                  value
-                );
-              }
-            );
-
-            response =
-              NextResponse.next({
-                request,
-              });
-
-            cookiesToSet.forEach(
-              ({
-                name,
-                value,
-                options,
-              }) => {
-                response.cookies.set(
-                  name,
-                  value,
-                  options
-                );
-              }
-            );
-          },
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
         },
-      }
-    );
+
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(
+            ({
+              name,
+              value,
+            }) => {
+              request.cookies.set(
+                name,
+                value
+              );
+            }
+          );
+
+          response = NextResponse.next({
+            request,
+          });
+
+          cookiesToSet.forEach(
+            ({
+              name,
+              value,
+              options,
+            }) => {
+              response.cookies.set(
+                name,
+                value,
+                options
+              );
+            }
+          );
+        },
+      },
+    }
+  );
 
   /*
-    Recuperiamo l'utente autenticato.
+  ========================================
+  RECUPERO SESSIONE
+  ========================================
   */
 
   const {
     data: {
       user,
     },
-  } =
-    await supabase.auth.getUser();
+  } = await supabase.auth.getUser();
 
   const pathname =
     request.nextUrl.pathname;
 
   /*
-    ========================================
-    LOGIN
-    ========================================
+  ========================================
+  LOGIN
+  ========================================
   */
 
   if (pathname === "/login") {
-
-    /*
-      Se è già autenticato e apre
-      /login, lo riportiamo alla home.
-    */
-
     if (user) {
+      const redirect =
+        request.nextUrl.searchParams.get(
+          "redirect"
+        );
+
+      const target =
+        redirect &&
+        redirect.startsWith("/")
+          ? redirect
+          : "/";
+
       return NextResponse.redirect(
         new URL(
-          "/",
+          target,
           request.url
         )
       );
@@ -98,9 +101,9 @@ export async function proxy(
   }
 
   /*
-    ========================================
-    API
-    ========================================
+  ========================================
+  API
+  ========================================
   */
 
   if (
@@ -110,9 +113,9 @@ export async function proxy(
   }
 
   /*
-    ========================================
-    FILE STATICI
-    ========================================
+  ========================================
+  FILE STATICI
+  ========================================
   */
 
   if (
@@ -123,9 +126,9 @@ export async function proxy(
   }
 
   /*
-    ========================================
-    PAGINE PROTETTE
-    ========================================
+  ========================================
+  PAGINE PROTETTE
+  ========================================
   */
 
   if (!user) {
