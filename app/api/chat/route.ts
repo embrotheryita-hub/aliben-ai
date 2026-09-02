@@ -6,13 +6,212 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-
-
-
 type ChatHistoryItem = {
   role?: string;
   content?: string;
 };
+
+type ImageInput = string | null;
+
+/*
+====================================================
+ESTRAE IL TESTO DALLA RISPOSTA OPENAI
+====================================================
+*/
+
+function responseText(response: any) {
+  return response?.output_text || "";
+}
+
+/*
+====================================================
+FORMATTA CRONOLOGIA
+====================================================
+*/
+
+function formatConversationHistory(
+  history: ChatHistoryItem[] = []
+) {
+  if (!history.length) {
+    return "Nessuna cronologia disponibile.";
+  }
+
+  return history
+    .slice(-8)
+    .map((item) => {
+      const role =
+        item.role === "assistant"
+          ? "AI"
+          : "CLIENTE";
+
+      const content =
+        typeof item.content === "string"
+          ? item.content.slice(0, 5000)
+          : "";
+
+      return `${role}:\n${content}`;
+    })
+    .join(
+      "\n\n============================\n\n"
+    );
+}
+
+/*
+====================================================
+ANALISI IMMAGINE
+====================================================
+
+La fotografia viene analizzata esclusivamente per
+individuare informazioni visibili utili alla ricerca:
+
+- nome prodotto
+- marca
+- codice
+- testo sull'etichetta
+- formato
+- parole chiave
+- eventuale categoria apparente
+
+NON deve inventare dati tecnici.
+
+Il risultato viene poi utilizzato per cercare
+nella Knowledge Base ALIBEN.
+====================================================
+*/
+
+async function analyzeImage(
+  image: ImageInput,
+  message: string
+) {
+  if (!image) {
+    return "";
+  }
+
+  try {
+    const visionResponse =
+      await openai.responses.create({
+        model: "gpt-4.1-mini",
+
+        input: [
+          {
+            role: "user",
+
+            content: [
+              {
+                type: "input_text",
+
+                text: `
+Sei il modulo di ANALISI VISIVA di ALIBEN AI.
+
+Devi analizzare la fotografia allegata.
+
+Il tuo compito NON è rispondere al cliente.
+
+Il tuo compito è estrarre solamente gli elementi
+VISIBILI nella fotografia che possono essere utili
+per cercare il prodotto corretto nella Knowledge Base
+ALIBEN.
+
+Cerca soprattutto:
+
+- nome prodotto
+- marca
+- codice articolo
+- codice a barre se leggibile
+- testo dell'etichetta
+- descrizione visibile
+- categoria apparente
+- formato
+- peso
+- parole distintive
+- eventuali indicazioni d'uso visibili
+
+REGOLA FONDAMENTALE:
+
+NON inventare informazioni.
+
+Se un testo non è leggibile, non ricostruirlo
+arbitrariamente.
+
+Se non sei sicuro del nome del prodotto,
+indicalo come possibile lettura.
+
+NON inventare:
+
+- dosaggi
+- ingredienti
+- allergeni
+- ricette
+- destinazioni d'uso
+- caratteristiche tecniche
+- certificazioni
+- codici non leggibili
+
+Queste informazioni dovranno essere verificate
+successivamente nella Knowledge Base.
+
+Se il cliente ha scritto una domanda insieme
+alla fotografia, usala solamente per capire
+cosa cercare.
+
+DOMANDA DEL CLIENTE:
+
+${message || "Il cliente ha inviato solamente una fotografia."}
+
+Rispondi con un breve elenco di ELEMENTI VISIBILI
+UTILI ALLA RICERCA.
+
+Se non riesci a leggere nulla di utile,
+scrivi:
+
+NESSUN ELEMENTO TESTUALE UTILE RILEVATO.
+`,
+              },
+
+             {
+  type: "input_image",
+  image_url: image,
+  detail: "auto",
+},
+            ],
+          },
+        ],
+      });
+
+    const result =
+      responseText(visionResponse);
+
+    if (!result.trim()) {
+      return "";
+    }
+
+    return result.trim();
+  } catch (error) {
+    console.error(
+      "ERRORE ANALISI IMMAGINE:",
+      error
+    );
+
+    return "";
+  }
+}
+
+/*
+====================================================
+RISOLUZIONE CONTINUITÀ CONVERSAZIONE
+====================================================
+
+Trasforma domande come:
+
+"qual è il dosaggio?"
+"e per la brioche?"
+"ingredienti?"
+"quanto ne devo mettere?"
+"e questo?"
+
+in una query autonoma utile per la Knowledge Base.
+====================================================
+*/
 
 async function resolveContextualQuery(
   message: string,
@@ -52,35 +251,59 @@ async function resolveContextualQuery(
   ]);
 
   const isShortFollowUp =
-    shortFollowUpWords.has(normalizedMessage);
+    shortFollowUpWords.has(
+      normalizedMessage
+    );
+
+  /*
+  ----------------------------------------------------
+  CASO SEMPLICE:
+  "ingredienti?", "dosaggio?", ecc.
+  ----------------------------------------------------
+  */
 
   if (isShortFollowUp) {
-    const previousUserMessages = history
-      .filter(
-        (item) =>
-          item.role === "user" &&
-          typeof item.content === "string"
-      )
-      .map((item) => item.content!.trim())
-      .filter(Boolean);
+    const previousUserMessages =
+      history
+        .filter(
+          (item) =>
+            item.role === "user" &&
+            typeof item.content ===
+              "string"
+        )
+        .map((item) =>
+          item.content!.trim()
+        )
+        .filter(Boolean);
 
     let previousUserMessage = "";
 
     for (
-      let i = previousUserMessages.length - 1;
+      let i =
+        previousUserMessages.length - 1;
       i >= 0;
       i--
     ) {
-      const candidate = previousUserMessages[i]
-        .toLowerCase()
-        .replace(/[?!.,;:]+$/g, "")
-        .trim();
+      const candidate =
+        previousUserMessages[i]
+          .toLowerCase()
+          .replace(
+            /[?!.,;:]+$/g,
+            ""
+          )
+          .trim();
 
-      if (shortFollowUpWords.has(candidate)) {
+      if (
+        shortFollowUpWords.has(
+          candidate
+        )
+      ) {
         continue;
       }
 
-      previousUserMessage = previousUserMessages[i];
+      previousUserMessage =
+        previousUserMessages[i];
+
       break;
     }
 
@@ -88,6 +311,12 @@ async function resolveContextualQuery(
       return `${message} ${previousUserMessage}`;
     }
   }
+
+  /*
+  ----------------------------------------------------
+  CRONOLOGIA RECENTE
+  ----------------------------------------------------
+  */
 
   const recentHistory =
     history
@@ -99,13 +328,23 @@ async function resolveContextualQuery(
             : "CLIENTE";
 
         const content =
-          typeof item.content === "string"
-            ? item.content.slice(0, 4000)
+          typeof item.content ===
+          "string"
+            ? item.content.slice(
+                0,
+                4000
+              )
             : "";
 
         return `${role}: ${content}`;
       })
       .join("\n\n");
+
+  /*
+  ----------------------------------------------------
+  MODELLO DI CONTINUITÀ
+  ----------------------------------------------------
+  */
 
   try {
     const resolution =
@@ -117,62 +356,111 @@ Sei un modulo di CONTINUITÀ CONVERSAZIONALE
 per ALIBEN AI.
 
 Il tuo unico compito è trasformare l'ultima
-domanda del cliente in una query autonoma
+domanda del cliente in una QUERY AUTONOMA
 per una ricerca nella Knowledge Base.
 
 NON rispondere alla domanda.
-NON inventare prodotti.
-NON aggiungere informazioni tecniche.
 
-Usa la cronologia solamente per risolvere
-riferimenti come:
+NON inventare prodotti.
+
+NON inventare informazioni tecniche.
+
+NON aggiungere informazioni che non sono
+presenti nella cronologia.
+
+Usa la cronologia esclusivamente per
+risolvere riferimenti contestuali.
+
+Puoi risolvere riferimenti come:
+
 - "quello"
 - "questo prodotto"
+- "il prodotto di prima"
 - "la scheda tecnica"
 - "il dosaggio"
 - "quanto ne devo mettere"
 - "con cosa lo sostituisco"
 - "e per la brioche?"
+- "e per la pizza?"
 - "dammi la ricetta"
+- "ingredienti?"
+- "allergeni?"
+- "caratteristiche?"
 
 Se l'ultima domanda è già autonoma,
 restituiscila praticamente invariata.
 
 Se il cliente sta chiaramente continuando
-a parlare dello stesso prodotto o della stessa
-lavorazione, includi quel riferimento nella query.
+a parlare dello stesso prodotto o della
+stessa lavorazione, includi quel riferimento
+nella query.
 
 Esempio:
 
 CRONOLOGIA:
-CLIENTE: Parlami del Besozzi Mix Lievitati.
-AI: È un mix per grandi lievitati...
+
+CLIENTE:
+Parlami del Besozzi Mix Lievitati.
+
+AI:
+È un mix per grandi lievitati...
 
 ULTIMA DOMANDA:
+
 Dammi la scheda tecnica.
 
 QUERY AUTONOMA:
+
 scheda tecnica Besozzi Mix Lievitati
 
 Altro esempio:
 
 CRONOLOGIA:
-CLIENTE: Sto lavorando con il Besozzi Mix Lievitati.
-AI: ...
+
+CLIENTE:
+Sto lavorando con il Besozzi Mix Lievitati.
+
+AI:
+...
 
 ULTIMA DOMANDA:
+
 Qual è il dosaggio?
 
 QUERY AUTONOMA:
+
 dosaggio Besozzi Mix Lievitati
+
+Altro esempio:
+
+CRONOLOGIA:
+
+CLIENTE:
+Che prodotto abbiamo per i muffin?
+
+AI:
+Ti consiglio...
+
+ULTIMA DOMANDA:
+
+E per la brioche?
+
+QUERY AUTONOMA:
+
+prodotto ALIBEN per brioche
 
 Se ci sono due prodotti diversi e non è
 possibile capire quale sia il riferimento,
-NON scegliere arbitrariamente: restituisci
-la domanda originale.
+NON scegliere arbitrariamente.
 
-Rispondi SOLO con la query autonoma,
-senza virgolette e senza spiegazioni.
+In quel caso restituisci la domanda
+originale.
+
+Rispondi SOLO con la query autonoma.
+
+NON usare virgolette.
+
+NON aggiungere spiegazioni.
 
 ========================================
 CRONOLOGIA RECENTE
@@ -189,7 +477,9 @@ ${message}
       });
 
     const resolved =
-      responseText(resolution);
+      responseText(
+        resolution
+      );
 
     if (
       resolved &&
@@ -209,69 +499,138 @@ ${message}
   }
 }
 
-function responseText(
-  response: any
+/*
+====================================================
+POST
+====================================================
+*/
+
+export async function POST(
+  req: Request
 ) {
-  return (
-    response?.output_text ||
-    ""
-  );
-}
-
-function formatConversationHistory(
-  history: ChatHistoryItem[] = []
-) {
-  if (!history.length) {
-    return "Nessuna cronologia disponibile.";
-  }
-
-  return history
-    .slice(-8)
-    .map((item) => {
-      const role =
-        item.role === "assistant"
-          ? "AI"
-          : "CLIENTE";
-
-      const content =
-        typeof item.content === "string"
-          ? item.content.slice(0, 5000)
-          : "";
-
-      return `${role}:\n${content}`;
-    })
-    .join("\n\n============================\n\n");
-}
-
-export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body =
+      await req.json();
 
     const message =
-      body?.message;
+      typeof body?.message ===
+      "string"
+        ? body.message
+        : "";
+
+    const image: ImageInput =
+      typeof body?.image ===
+      "string" &&
+      body.image.trim()
+        ? body.image
+        : null;
 
     const history =
-      Array.isArray(body?.history)
+      Array.isArray(
+        body?.history
+      )
         ? body.history
         : [];
 
-    if (!message || typeof message !== "string") {
+    /*
+    ==================================================
+    VALIDAZIONE
+    ==================================================
+    */
+
+    if (
+      !message.trim() &&
+      !image
+    ) {
       return NextResponse.json(
         {
-          reply: "Inserisci una domanda.",
+          reply:
+            "Inserisci una domanda oppure invia una fotografia.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    // ==========================================
-    // 1. CONTINUITÀ DELLA CONVERSAZIONE
-    // ==========================================
+    /*
+    ==================================================
+    1. ANALISI FOTOGRAFIA
+    ==================================================
+
+    Se presente una foto, GPT legge ciò che è
+    effettivamente visibile.
+
+    Questo NON è ancora il dato tecnico finale.
+    Serve solamente a trovare il documento corretto.
+    ==================================================
+    */
+
+    let imageAnalysis = "";
+
+    if (image) {
+      imageAnalysis =
+        await analyzeImage(
+          image,
+          message
+        );
+
+      console.log(
+        "ANALISI IMMAGINE:",
+        imageAnalysis
+      );
+    }
+
+    /*
+    ==================================================
+    2. RISOLUZIONE CONTESTO
+    ==================================================
+    */
+
+    const contextualQuery =
+      await resolveContextualQuery(
+        message ||
+          "Identifica il prodotto presente nella fotografia.",
+        history
+      );
+
+    /*
+    ==================================================
+    3. COSTRUZIONE QUERY KNOWLEDGE BASE
+    ==================================================
+
+    Uniamo:
+
+    - domanda del cliente
+    - continuità conversazione
+    - ciò che è stato letto dalla fotografia
+    ==================================================
+    */
+
+    const searchQueryParts: string[] =
+      [];
+
+    if (
+      contextualQuery &&
+      contextualQuery.trim()
+    ) {
+      searchQueryParts.push(
+        contextualQuery.trim()
+      );
+    }
+
+    if (
+      imageAnalysis &&
+      imageAnalysis.trim()
+    ) {
+      searchQueryParts.push(
+        `INFORMAZIONI VISIBILI NELLA FOTO:\n${imageAnalysis}`
+      );
+    }
 
     const searchQuery =
-      await resolveContextualQuery(
-        message,
-        history
+      searchQueryParts.join(
+        "\n\n"
       );
 
     console.log(
@@ -279,34 +638,45 @@ export async function POST(req: Request) {
       {
         originalMessage:
           message,
+        contextualQuery,
+        imageAnalysis,
         searchQuery,
       }
     );
 
-    // ==========================================
-    // 2. RICERCA KNOWLEDGE BASE ALIBEN
-    // ==========================================
+    /*
+    ==================================================
+    4. RICERCA KNOWLEDGE BASE
+    ==================================================
+    */
 
-    const results = await searchKnowledge(
-      searchQuery,
-      8
+    const results =
+      await searchKnowledge(
+        searchQuery,
+        8
+      );
+
+    console.log(
+      "RISULTATI TROVATI:"
     );
-
-    console.log("RISULTATI TROVATI:");
 
     console.log(
       results.map((r) => ({
         file: r.file,
         page: r.page,
-        productName: r.productName,
-        category: r.category,
+        productName:
+          r.productName,
+        category:
+          r.category,
         score: r.score,
       }))
     );
 
-    // ==========================================
-    // 2. COSTRUZIONE DOCUMENTAZIONE
-    // ==========================================
+    /*
+    ==================================================
+    5. COSTRUZIONE DOCUMENTAZIONE
+    ==================================================
+    */
 
     const context =
       results.length > 0
@@ -339,9 +709,11 @@ ${r.text}
             )
         : "Nessuna documentazione interna pertinente trovata.";
 
-    // ==========================================
-    // 3. FONTI INTERNE
-    // ==========================================
+    /*
+    ==================================================
+    6. FONTI INTERNE
+    ==================================================
+    */
 
     const internalSources =
       results.length > 0
@@ -353,66 +725,37 @@ ${r.text}
             .join("\n")
         : "Nessuna fonte interna pertinente.";
 
-    // ==========================================
-    // 4. GPT + WEB SEARCH
-    // ==========================================
+    /*
+    ==================================================
+    7. RISPOSTA FINALE
+    ==================================================
+    */
 
     const response =
-  await openai.responses.create({
-    model: "gpt-4.1",
+      await openai.responses.create({
+        model: "gpt-4.1",
 
-    input: `
+        input: `
 Sei ALIBEN AI.
 
-========================================
-REGOLA FONDAMENTALE KNOWLEDGE
-========================================
+Sei l'assistente tecnico e commerciale
+di ALIBEN.
 
-Per questa risposta puoi utilizzare ESCLUSIVAMENTE
-le informazioni contenute nella DOCUMENTAZIONE
-INTERNA ALIBEN riportata nel contesto qui sotto.
+Aiuti:
 
-NON utilizzare informazioni provenienti da:
-- conoscenza generale;
-- memoria del modello;
-- prodotti non presenti nel contesto;
-- siti web;
-- internet;
-- fonti esterne.
-
-Se nei risultati forniti non è presente una risposta
-sufficiente, devi dichiararlo chiaramente.
-
-NON cercare di completare la risposta inventando
-o deducendo informazioni.
-
-IMPORTANTE:
-
-Un prodotto può essere consigliato SOLO se il
-contenuto della documentazione fornita supporta
-realmente quel consiglio.
-
-La similarità della ricerca NON è una prova
-della destinazione d'uso del prodotto.
-
-Sei il responsabile tecnico e commerciale
-dell'azienda Aliben.
-
-Aiuti panificatori, pasticceri, pizzaioli
-e commerciali Aliben.
+- commerciali ALIBEN
+- panificatori
+- pasticceri
+- pizzaioli
+- clienti professionali
 
 ========================================
-GERARCHIA DELLE FONTI
+REGOLA FONDAMENTALE
 ========================================
 
-Hai due possibili fonti:
-
-1. DOCUMENTAZIONE INTERNA ALIBEN
-   PDF e schede tecniche presenti nella
-   knowledge base.
-
-2. SITO UFFICIALE ALIBEN
-   https://www.aliben.it/
+Per questa risposta devi utilizzare
+principalmente la DOCUMENTAZIONE INTERNA
+ALIBEN riportata nel contesto.
 
 La documentazione interna è la fonte
 PRIMARIA per:
@@ -425,71 +768,100 @@ PRIMARIA per:
 - caratteristiche tecniche
 - modalità di utilizzo
 - conservazione
+- ricette
+- procedimenti
 - dati tecnici
+- codici articolo
+- marche
+- fornitori
+- formati
 
-Il sito ufficiale ALIBEN è una fonte
-SECONDARIA di verifica e integrazione,
-soprattutto per:
+NON inventare informazioni.
 
-- destinazione d'uso
-- categoria del prodotto
-- applicazioni
-- descrizione commerciale
-- prodotti disponibili
-- informazioni che mancano nella
-  scheda tecnica interna.
+NON utilizzare la conoscenza generale
+del modello per colmare lacune tecniche.
 
-========================================
-REGOLA WEB
-========================================
+NON trasferire caratteristiche da un
+prodotto a un altro.
 
-Puoi utilizzare la ricerca web SOLO
-quando serve per completare o verificare
-un'informazione che la documentazione
-interna non permette di determinare.
+NON inventare prodotti ALIBEN.
 
-La ricerca web è limitata al dominio
-ufficiale:
+NON inventare dosaggi.
 
-aliben.it
+NON inventare ingredienti.
 
-NON utilizzare altri siti.
+NON inventare allergeni.
 
-NON utilizzare blog, marketplace,
-rivenditori, forum o siti concorrenti.
+NON inventare ricette.
 
-Se il sito ufficiale ALIBEN non fornisce
-l'informazione necessaria, dichiaralo.
+NON inventare codici articolo.
 
-NON inventare comunque la risposta.
+NON inventare marche o fornitori.
 
 ========================================
-ESEMPIO IMPORTANTE
+FOTOGRAFIA DEL PRODOTTO
 ========================================
 
-Se il prodotto si chiama:
+Quando il cliente invia una fotografia,
+l'analisi visiva serve solamente come
+strumento di IDENTIFICAZIONE e RICERCA.
+
+Le informazioni ricavate dalla fotografia
+NON sono automaticamente dati tecnici ALIBEN.
+
+Usa la fotografia per:
+
+- individuare il nome del prodotto;
+- individuare la marca;
+- individuare il codice;
+- leggere eventuale testo;
+- individuare parole chiave;
+- individuare il formato;
+- restringere la ricerca nella Knowledge Base.
+
+Per i dati tecnici finali devi utilizzare
+la DOCUMENTAZIONE INTERNA ALIBEN.
+
+Se la fotografia mostra chiaramente un nome
+o un codice ma la Knowledge Base non contiene
+documentazione sufficiente, dichiaralo.
+
+NON inventare informazioni tecniche basandoti
+solamente sulla fotografia.
+
+NON assumere che un prodotto sia ALIBEN
+solamente perché la fotografia sembra
+riguardare un prodotto alimentare.
+
+========================================
+ATTENZIONE ALLA SIMILARITÀ
+========================================
+
+La similarità della ricerca NON è una
+prova della destinazione d'uso.
+
+Il fatto che un prodotto abbia un nome
+simile alla richiesta del cliente NON
+significa automaticamente che sia adatto.
+
+Esempio:
+
+Se trovi un prodotto chiamato:
 
 "Crusca Muffin"
 
-NON puoi dedurre dal nome che sia
-destinato alla produzione di muffin.
+NON puoi concludere automaticamente
+che sia destinato alla produzione
+di muffin.
 
 Devi verificare la documentazione.
 
-Se la scheda dice:
+Se la documentazione dice:
 
 "pane e grissini con crusca"
 
-devi considerare questa come la
-destinazione documentata.
-
-Se il cliente chiede un prodotto
-per muffin e la scheda interna non
-permette di individuare un prodotto
-adatto, puoi utilizzare il sito
-ufficiale ALIBEN per verificare se
-esiste un prodotto specificamente
-indicato per muffin.
+questa è la destinazione d'uso
+documentata.
 
 ========================================
 DIVIETO DI INFERENZE
@@ -500,17 +872,73 @@ NON dedurre caratteristiche da:
 - nome prodotto
 - codice prodotto
 - nome file
-- parole come "muffin", "pane",
-  "pizza", "crema", ecc.
-- somiglianza con altri prodotti
+- parole contenute nel nome
+- categoria generica
+- somiglianza semantica
 - conoscenze generali
-- intuizioni commerciali.
+- intuizioni commerciali
+- fotografia da sola
 
 Il nome può essere utilizzato per
 CERCARE il prodotto.
 
 Il nome NON può essere utilizzato
-come PROVA della sua destinazione d'uso.
+come PROVA della destinazione d'uso.
+
+========================================
+SITO UFFICIALE ALIBEN
+========================================
+
+Il sito ufficiale ALIBEN può essere
+utilizzato come fonte SECONDARIA.
+
+Sito ufficiale:
+
+https://www.aliben.it/
+
+Può essere utilizzato per verificare
+o integrare soprattutto:
+
+- destinazione d'uso
+- categoria prodotto
+- applicazioni
+- descrizione commerciale
+- prodotti disponibili
+- informazioni commerciali
+
+NON utilizzare:
+
+- marketplace
+- rivenditori
+- blog
+- forum
+- siti concorrenti
+- altre fonti esterne
+
+Se il sito ufficiale ALIBEN non permette
+di determinare una risposta, NON inventare.
+
+========================================
+RISPOSTE TECNICHE
+========================================
+
+Se il cliente chiede un dato preciso,
+rispondi direttamente con quel dato.
+
+Non aggiungere informazioni tecniche
+non richieste.
+
+Esempio:
+
+CLIENTE:
+Qual è il dosaggio?
+
+RISPOSTA:
+
+Il dosaggio è **10%**.
+
+Fonte:
+📄 nome-file.pdf — pagina 2
 
 ========================================
 RICHIESTE COMMERCIALI
@@ -519,47 +947,139 @@ RICHIESTE COMMERCIALI
 Quando il cliente chiede:
 
 "cosa posso proporre?"
+
 "cosa mi consigli?"
+
 "quale prodotto posso usare?"
+
 "ho un cliente che vuole..."
-"qual è il prodotto migliore per..."
+
+"qual è il prodotto migliore?"
 
 devi:
 
 1. capire l'esigenza;
 
-2. cercare prima nella documentazione
-   interna;
+2. cercare nella documentazione interna;
 
-3. verificare se la documentazione
-   identifica realmente prodotti
-   pertinenti;
+3. verificare la destinazione d'uso
+   realmente documentata;
 
-4. se l'informazione è insufficiente,
-   utilizzare il sito ufficiale ALIBEN;
+4. se necessario verificare il sito
+   ufficiale ALIBEN;
 
-5. confrontare le informazioni trovate;
+5. proporre solo prodotti realmente
+   supportati dalle fonti.
 
-6. proporre solo prodotti supportati
-   dalle fonti.
+Se esistono più alternative realmente
+pertinenti, presentale brevemente.
 
-Se trovi un prodotto sul sito ufficiale
-ALIBEN ma non nella knowledge base,
-puoi comunque citarlo come prodotto
-presente sul sito ufficiale.
-
-In quel caso devi specificare che
-l'informazione proviene dal sito
-ufficiale e non dalla scheda tecnica
-interna.
+NON proporre prodotti soltanto perché
+il nome sembra adatto.
 
 ========================================
-STILE DELLA RISPOSTA
+CODICI ARTICOLO
 ========================================
 
-Devi comportarti come un tecnico ALIBEN
-che sta parlando direttamente con un
-commerciale o con un cliente.
+Quando un codice articolo è presente
+nella documentazione, riportalo
+ESATTAMENTE come appare.
+
+Mantieni:
+
+- zeri iniziali
+- lettere
+- numeri
+- eventuali simboli
+
+NON modificare il codice.
+
+NON inventare codici.
+
+Quando il cliente chiede un elenco
+di prodotti, quando disponibile mostra:
+
+- Nome prodotto
+- Codice articolo
+- Marca / fornitore
+- Peso / formato
+
+========================================
+MARCA E FORNITORE
+========================================
+
+Se la documentazione associa
+chiaramente un prodotto a una marca
+o a un fornitore, riportalo.
+
+La marca può essere indicata:
+
+- nella riga del prodotto;
+- nell'intestazione;
+- nella tabella;
+- nella sezione del catalogo;
+- nella pagina.
+
+Se una marca è chiaramente associata
+a una sezione del catalogo, puoi
+associarla ai prodotti di quella
+sezione salvo diversa indicazione.
+
+NON dedurre la marca dal nome.
+
+NON usare conoscenze esterne.
+
+NON confondere ALIBEN con il fornitore.
+
+========================================
+RICETTE
+========================================
+
+Quando la risposta riguarda:
+
+- ricetta
+- procedimento
+- formulazione
+- impasto
+- preimpasto
+- preparazione tecnica
+
+usa Markdown.
+
+Esempio:
+
+**PREIMPASTO**
+
+- Mix Contessa: **1000 g**
+- Acqua: **500 g**
+- Tuorlo d'uovo: **100 g**
+- Burro: **200 g**
+- Lievito di birra: **1 g**
+
+**PROCEDIMENTO**
+
+1. Impastare tutti gli ingredienti.
+2. Lavorare fino a ottenere un impasto liscio.
+3. Aggiungere il burro.
+4. Lasciare lievitare secondo la fonte.
+
+Mantieni esattamente:
+
+- quantità
+- ingredienti
+- percentuali
+- temperature
+- tempi
+- condizioni di lavorazione
+
+NON aggiungere informazioni
+non presenti nella fonte.
+
+========================================
+STILE
+========================================
+
+Rispondi sempre in italiano.
 
 La risposta deve essere:
 
@@ -568,364 +1088,128 @@ La risposta deve essere:
 - concreta
 - breve
 - facile da leggere
-- orientata alla soluzione.
+- orientata alla soluzione
 
 NON parlare come un motore di ricerca.
 
-NON scaricare nella risposta tutto il
-contenuto della scheda tecnica se il
-cliente non lo ha richiesto.
+NON riversare tutta la scheda tecnica
+se il cliente non la richiede.
 
-NON elencare automaticamente:
+Dai prima la risposta diretta.
 
-- tutti gli ingredienti
-- valori nutrizionali
-- allergeni
-- conservazione
-- packaging
-- shelf-life
-
-se non sono necessari per rispondere
-alla domanda.
-
-========================================
-COME RISPONDERE
-========================================
-
-Per prima cosa dai la risposta diretta.
-
-Poi, se utile, aggiungi una breve
-spiegazione del perché.
+Poi aggiungi una breve spiegazione
+se utile.
 
 Infine indica la fonte.
 
-Esempio:
-
-"Ti consiglierei Besozzi Mix Muffin,
-perché è specificamente indicato per
-la produzione di muffin.
-
-Crusca Muffin invece non lo proporrei
-per questa esigenza, perché la relativa
-documentazione lo indica per pane e
-grissini con crusca.
-
-Fonte: 285- mix muffin besozzi.pdf —
-pagine 1-2."
-
 ========================================
-RICHIESTE TECNICHE
+CONTINUITÀ
 ========================================
 
-Se il cliente chiede un dato preciso,
-rispondi direttamente con quel dato.
+La cronologia serve esclusivamente
+a capire il contesto della conversazione.
 
-Non aggiungere altre informazioni
-non richieste.
+NON trattare la cronologia come fonte
+tecnica.
 
-========================================
-RICHIESTE COMMERCIALI
-========================================
-
-Quando il cliente chiede:
-
-"cosa mi consigli?"
-"cosa posso proporre?"
-"che prodotto posso usare?"
-"ho un cliente che vuole..."
-
-rispondi come farebbe un tecnico
-commerciale.
-
-Individua il prodotto più pertinente
-quando la documentazione lo permette.
-
-Spiega in una o due frasi perché lo
-consigli.
-
-Se esistono più alternative realmente
-pertinenti, presentale brevemente.
-
-NON proporre un prodotto soltanto
-perché il suo nome sembra adatto.
+Per i dati tecnici devi utilizzare
+la documentazione interna disponibile
+nel contesto e, quando previsto,
+il sito ufficiale ALIBEN.
 
 ========================================
-CODICI ARTICOLO
+DOCUMENTAZIONE INTERNA
 ========================================
 
-Quando utilizzi informazioni provenienti
-da cataloghi ALIBEN, presta particolare
-attenzione ai codici articolo.
-
-Se nella documentazione è presente un
-codice associato a un prodotto, riportalo
-nella risposta quando è utile per
-identificare o ordinare il prodotto.
-
-Per richieste come:
-
-- "che canditi abbiamo?"
-- "quali prodotti abbiamo per Pasqua?"
-- "cosa posso proporre al cliente?"
-- "che articoli abbiamo a catalogo?"
-- "qual è il codice di questo prodotto?"
-
-quando il catalogo contiene il codice,
-mostra preferibilmente:
-
-- Nome prodotto
-- Codice articolo
-- Marca / fornitore, se disponibile
-- Peso/formato, se presente
-
-IMPORTANTE:
-
-Riporta il codice ESATTAMENTE come appare
-nella fonte.
-
-Non rimuovere gli zeri iniziali.
-
-Non inventare mai un codice.
-
-Se il codice non è presente nella fonte,
-non crearne uno.
-
-Il codice deve essere associato
-correttamente al prodotto e non a un altro
-articolo della stessa tabella.
-
-Se il cliente chiede un elenco di prodotti
-presenti in un catalogo, quando possibile
-includi il codice di ogni prodotto
-nell'elenco.
+${context}
 
 ========================================
-MARCA / FORNITORE
+FONTI INTERNE
 ========================================
 
-Quando un prodotto presente nella
-documentazione riporta anche la marca,
-il produttore o il fornitore, riportalo
-nella risposta quando è utile.
-
-La marca o il fornitore può essere indicato:
-
-- direttamente nella riga del prodotto;
-- nell'intestazione della tabella;
-- nel titolo della sezione;
-- nell'intestazione della pagina;
-- tramite un marchio o nome del fornitore
-  chiaramente associato alla sezione del
-  catalogo.
-
-Se una marca o un fornitore è chiaramente
-associato a una determinata sezione o
-tabella del catalogo, considera tale marca
-come riferita ai prodotti presenti in quella
-sezione, salvo diversa indicazione.
-
-Per gli elenchi di prodotti provenienti
-dai cataloghi, quando disponibili,
-mostra preferibilmente:
-
-- Nome prodotto
-- Codice articolo
-- Marca / fornitore
-- Peso o formato
-
-Esempio:
-
-**Semicanditi in sciroppo leggero — Agrimontana**
-
-- Lamponi — codice 0009717 — Agrimontana — 3,3 kg
-- Fragoline — codice 0009798 — Agrimontana — 3,3 kg
-- Amarene chiare — codice 0009901 — Agrimontana — 3,3 kg
-
-IMPORTANTE:
-
-Riporta la marca o il fornitore
-ESATTAMENTE come indicato nella fonte.
-
-Se la marca è indicata nell'intestazione
-o nella sezione del catalogo, puoi
-associarla ai prodotti di quella sezione.
-
-Non dedurre la marca semplicemente dal
-nome del prodotto.
-
-Non dedurre la marca da conoscenze
-esterne.
-
-Non confondere ALIBEN con il fornitore
-del prodotto.
-
-Non inventare mai una marca o un
-fornitore.
-
-Se non è possibile determinare con
-sufficiente certezza il fornitore,
-non inserirlo.
-
-Se nella stessa pagina sono presenti
-più fornitori o marche, associa ogni
-prodotto esclusivamente alla sezione
-corretta.
-
-Mantieni sempre il codice articolo
-esattamente come appare nella fonte,
-compresi gli zeri iniziali.
+${internalSources}
 
 ========================================
-FORMATTAZIONE DELLE RICETTE
+ANALISI DELLA FOTOGRAFIA
 ========================================
 
-Quando la risposta riguarda:
+${imageAnalysis || "Nessuna fotografia allegata."}
 
-- una ricetta
-- un procedimento
-- una formulazione
-- un impasto
-- un preimpasto
-- una preparazione tecnica
+ATTENZIONE:
 
-NON presentare tutte le informazioni
-in un unico paragrafo.
+L'analisi della fotografia serve
+solamente per identificare e cercare
+il prodotto.
 
-Organizza la risposta in modo chiaro
-e leggibile utilizzando Markdown.
-
-Per gli ingredienti usa elenchi puntati.
-
-Esempio:
-
-**PREIMPASTO**
-
-- Mix Contessa: 1000 g
-- Acqua: 500 g
-- Tuorlo d'uovo: 100 g
-- Burro: 200 g
-- Lievito di birra: 1 g
-
-Per il procedimento usa un elenco numerato.
-
-Esempio:
-
-**PROCEDIMENTO**
-
-1. Impastare tutti gli ingredienti.
-2. Lavorare fino a ottenere un impasto liscio.
-3. Aggiungere il burro.
-4. Lasciare lievitare per il tempo indicato.
-
-Se la ricetta è suddivisa in più fasi,
-mantieni la suddivisione originale della
-fonte.
-
-Usa titoli separati per sezioni come:
-
-**PREIMPASTO**
-**IMPASTO**
-**PROCEDIMENTO**
-**COTTURA**
-**CONSERVAZIONE**
-
-Usa il grassetto per quantità, temperature,
-tempi o informazioni particolarmente
-importanti quando migliora la leggibilità.
-
-NON modificare mai:
-
-- quantità
-- ingredienti
-- temperature
-- tempi
-- percentuali
-- condizioni di lavorazione
-
-Mantieni esattamente i dati presenti
-nella documentazione.
-
-NON aggiungere ingredienti o passaggi
-che non sono presenti nella fonte.
-
-Se la fonte non contiene una determinata
-informazione, non inventarla.
+NON usarla come fonte tecnica.
 
 ========================================
-APPROFONDIMENTI
+CRONOLOGIA CONVERSAZIONE
 ========================================
 
-Quando può essere utile, puoi chiudere
-con una breve proposta di approfondimento.
-
-Esempi:
-
-"Se vuoi, ti controllo anche il dosaggio."
-
-"Se vuoi, posso confrontarlo con gli
-altri prodotti."
-
-"Se mi dici che tipo di risultato vuole
-il cliente, posso cercare il prodotto
-più adatto."
-
-NON farlo automaticamente dopo ogni
-risposta.
+${formatConversationHistory(
+  history
+)}
 
 ========================================
-NESSUNA INFORMAZIONE
+QUERY UTILIZZATA
 ========================================
 
-Se né la knowledge base né il sito
-ufficiale ALIBEN forniscono una risposta
-sufficiente:
-
-dillo chiaramente.
-
-NON inventare.
-
-Puoi fare una domanda di chiarimento
-al cliente.
+${searchQuery}
 
 ========================================
-REGOLE ASSOLUTE
+DOMANDA ATTUALE
+========================================
+
+${
+  message ||
+  "Il cliente ha inviato una fotografia e chiede di identificare/analizzare il prodotto."
+}
+
+========================================
+REGOLE FINALI
 ========================================
 
 1. Rispondi sempre in italiano.
 
-2. Non inventare prodotti Aliben.
+2. Non inventare.
 
-3. Non inventare caratteristiche.
+3. Non inventare prodotti.
 
-4. Non inventare destinazioni d'uso.
+4. Non inventare caratteristiche.
 
-5. Non inventare dosaggi.
+5. Non inventare destinazioni d'uso.
 
-6. Non inventare ingredienti.
+6. Non inventare dosaggi.
 
-7. Non inventare allergeni.
+7. Non inventare ingredienti.
 
-8. Non inventare tempi o temperature.
+8. Non inventare allergeni.
 
-9. Non inventare certificazioni.
+9. Non inventare tempi o temperature.
 
-10. Non trasferire caratteristiche da
-    un prodotto a un altro.
+10. Non inventare certificazioni.
 
-11. Non usare il nome del prodotto come
-    prova della sua destinazione d'uso.
+11. Non trasferire caratteristiche
+    da un prodotto a un altro.
 
-12. Non usare la similarità semantica
+12. Non usare il nome del prodotto
+    come prova della destinazione d'uso.
+
+13. Non usare la similarità semantica
     come prova di compatibilità tecnica.
 
-13. Se la documentazione non è sufficiente,
+14. Non usare la fotografia come prova
+    di dati tecnici non verificati.
+
+15. Se la documentazione non è sufficiente,
     dichiaralo chiaramente.
 
-14. Se il sito ufficiale ALIBEN fornisce
-    informazioni utili, puoi usarle come
-    fonte secondaria.
+16. Se il sito ufficiale ALIBEN fornisce
+    informazioni utili, puoi utilizzarlo
+    come fonte secondaria.
 
-15. Mantieni un tono professionale,
+17. Mantieni sempre un tono professionale,
     semplice e pratico.
 
 ========================================
@@ -951,53 +1235,21 @@ Fonti:
 🌐 Sito ufficiale ALIBEN — pagina del prodotto
 
 Cita solamente le fonti realmente
-utilizzate per costruire la risposta.
-
-========================================
-DOCUMENTAZIONE INTERNA
-========================================
-
-${context}
-
-========================================
-FONTI INTERNE DISPONIBILI
-========================================
-
-${internalSources}
-
-========================================
-CONTINUITÀ DELLA CONVERSAZIONE
-========================================
-
-La cronologia seguente serve per capire
-riferimenti e domande brevi del cliente.
-
-NON trattare la cronologia come una fonte
-tecnica: per i dati tecnici devi usare
-solamente la DOCUMENTAZIONE INTERNA
-riportata sopra e, quando previsto dalle
-regole, il sito ufficiale ALIBEN.
-
-${formatConversationHistory(history)}
-
-========================================
-QUERY UTILIZZATA PER LA KNOWLEDGE
-========================================
-
-${searchQuery}
-
-========================================
-DOMANDA ATTUALE DEL CLIENTE
-========================================
-
-${message}
+utilizzate.
 `,
       });
 
-    return NextResponse.json({
-      reply: response.output_text,
-    });
+    /*
+    ==================================================
+    8. RISPOSTA API
+    ==================================================
+    */
 
+    return NextResponse.json({
+      reply:
+        response.output_text ||
+        "Non ho ricevuto una risposta.",
+    });
   } catch (error) {
     console.error(
       "ERRORE CHAT:",

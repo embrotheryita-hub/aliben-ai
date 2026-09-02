@@ -3,11 +3,13 @@ import ReactMarkdown from "react-markdown";
 type ChatMessageProps = {
   role: "user" | "assistant";
   text: string;
+  image?: string;
 };
 
 export default function ChatMessage({
   role,
   text,
+  image,
 }: ChatMessageProps) {
   const isUser = role === "user";
   const isTyping = text === "Sto scrivendo...";
@@ -43,18 +45,33 @@ export default function ChatMessage({
           }`}
         >
           {isUser ? "Tu" : "ALIBEN AI"}
+
           {!isUser && (
-            <span className="ml-1 text-xs">●</span>
+            <span className="ml-1 text-xs">
+              ●
+            </span>
           )}
         </p>
 
+        {/* FOTO ALLEGATA */}
+
+        {image && (
+          <div className="mb-3 overflow-hidden rounded-xl">
+            <img
+              src={image}
+              alt="Foto allegata"
+              className="max-h-[320px] w-full rounded-xl object-contain"
+            />
+          </div>
+        )}
+
         {isTyping ? (
           <div className="flex gap-2 py-1">
-            <span className="h-2 w-2 animate-bounce rounded-full bg-gray-500"></span>
+            <span className="h-2 w-2 animate-bounce rounded-full bg-gray-500" />
 
-            <span className="h-2 w-2 animate-bounce rounded-full bg-gray-500 [animation-delay:0.2s]"></span>
+            <span className="h-2 w-2 animate-bounce rounded-full bg-gray-500 [animation-delay:0.2s]" />
 
-            <span className="h-2 w-2 animate-bounce rounded-full bg-gray-500 [animation-delay:0.4s]"></span>
+            <span className="h-2 w-2 animate-bounce rounded-full bg-gray-500 [animation-delay:0.4s]" />
           </div>
         ) : (
           <div
