@@ -1,11 +1,10 @@
 "use client";
-
 import {
   useEffect,
   useRef,
   useState,
 } from "react";
-
+import MobileHomeButton from "@/components/MobileHomeButton";
 type Stats = {
   pdf: number;
   pages: number;
@@ -554,7 +553,7 @@ export default function AdminPage() {
 
       {/* CARICAMENTO / INDICIZZAZIONE / STATISTICHE */}
 
-      <div className="grid gap-6 md:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-3">
 
         {/* DOCUMENTI */}
 
@@ -690,33 +689,6 @@ export default function AdminPage() {
             </li>
 
           </ul>
-
-        </div>
-
-        {/* CLIENTI */}
-
-        <div className="rounded-xl bg-white p-6 shadow">
-
-          <h2 className="text-2xl font-semibold">
-            👥 Clienti
-          </h2>
-
-          <p className="mt-3 text-gray-600">
-            Gestisci i clienti e apri
-            direttamente le conversazioni
-            con ALIBEN AI.
-          </p>
-
-          <button
-            type="button"
-            onClick={() => {
-              window.location.href =
-                "/clienti";
-            }}
-            className="mt-6 rounded bg-red-700 px-4 py-2 text-white hover:bg-red-800"
-          >
-            👥 Apri Clienti
-          </button>
 
         </div>
 
@@ -1034,7 +1006,7 @@ export default function AdminPage() {
         </div>
 
       </section>
-
+<MobileHomeButton />
     </main>
   );
 }

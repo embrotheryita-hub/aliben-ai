@@ -4,7 +4,7 @@ import {
   useEffect,
   useState,
 } from "react";
-
+import MobileHomeButton from "@/components/MobileHomeButton";
 type InstagramPost = {
   id: string;
   caption: string;
@@ -421,7 +421,7 @@ export default function InstagramPage() {
         </section>
 
       </div>
-
+<MobileHomeButton />
     </main>
   );
 }

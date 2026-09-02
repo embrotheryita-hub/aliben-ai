@@ -794,8 +794,8 @@ export default function ClientsPage() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8">
 
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
-
+<div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl bg-white pb-24 shadow-2xl md:pb-0">
+  
             <div className="flex items-center justify-between border-b border-[#e8e3dd] px-6 py-5">
 
               <div>

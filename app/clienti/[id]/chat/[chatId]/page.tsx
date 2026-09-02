@@ -8,6 +8,7 @@ import {
 } from "react";import { useParams, useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
+import MobileHomeButton from "@/components/MobileHomeButton";
 
 type Client = {
   id: string;
@@ -1224,7 +1225,7 @@ export default function ClientChatPage() {
 
         </div>
       )}
-
+<MobileHomeButton />
     </main>
   );
 }
