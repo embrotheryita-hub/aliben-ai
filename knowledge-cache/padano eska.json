@@ -1,0 +1,21 @@
+{
+  "file": "padano eska.pdf",
+  "category": "schede-tecniche",
+  "pages": [
+    {
+      "page": 1,
+      "text": "",
+      "extraction_method": "pdf-empty"
+    },
+    {
+      "page": 2,
+      "text": "",
+      "extraction_method": "pdf-empty"
+    },
+    {
+      "page": 3,
+      "text": "06/12/2022",
+      "extraction_method": "pdf"
+    }
+  ]
+}

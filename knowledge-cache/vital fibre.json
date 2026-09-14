@@ -1,0 +1,21 @@
+{
+  "file": "vital fibre.pdf",
+  "category": "schede-tecniche",
+  "pages": [
+    {
+      "page": 1,
+      "text": "",
+      "extraction_method": "pdf-empty"
+    },
+    {
+      "page": 2,
+      "text": "",
+      "extraction_method": "pdf-empty"
+    },
+    {
+      "page": 3,
+      "text": "27.06.2018",
+      "extraction_method": "pdf"
+    }
+  ]
+}

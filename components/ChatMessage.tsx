@@ -16,7 +16,7 @@ export default function ChatMessage({
 
   return (
     <div
-      className={`flex items-start gap-3 ${
+      className={`flex min-w-0 items-start gap-3 ${
         isUser ? "justify-end" : "justify-start"
       }`}
     >
@@ -31,12 +31,14 @@ export default function ChatMessage({
       )}
 
       <div
-        className={`max-w-[80%] rounded-2xl px-5 py-4 shadow ${
+        className={`min-w-0 max-w-[80%] overflow-hidden rounded-2xl px-5 py-4 shadow ${
           isUser
             ? "bg-red-900 text-white"
             : "bg-white text-black"
         }`}
       >
+        {/* NOME */}
+
         <p
           className={`mb-2 text-sm font-bold ${
             isUser
@@ -56,14 +58,16 @@ export default function ChatMessage({
         {/* FOTO ALLEGATA */}
 
         {image && (
-          <div className="mb-3 overflow-hidden rounded-xl">
+          <div className="mb-3 max-w-full overflow-hidden rounded-xl">
             <img
               src={image}
               alt="Foto allegata"
-              className="max-h-[320px] w-full rounded-xl object-contain"
+              className="max-h-[320px] max-w-full rounded-xl object-contain"
             />
           </div>
         )}
+
+        {/* RISPOSTA */}
 
         {isTyping ? (
           <div className="flex gap-2 py-1">
@@ -76,8 +80,13 @@ export default function ChatMessage({
         ) : (
           <div
             className="
+              min-w-0
+              max-w-full
+              overflow-hidden
               text-[16px]
               leading-7
+              break-words
+              [overflow-wrap:anywhere]
 
               [&_p]:mb-3
               [&_p:last-child]:mb-0
@@ -109,9 +118,75 @@ export default function ChatMessage({
               [&_li]:mb-1
 
               [&_hr]:my-4
+
+              [&_pre]:max-w-full
+              [&_pre]:overflow-x-auto
+
+              [&_code]:break-words
+              [&_code]:[overflow-wrap:anywhere]
+
+              [&_table]:block
+              [&_table]:max-w-full
+              [&_table]:overflow-x-auto
             "
           >
-            <ReactMarkdown>
+            <ReactMarkdown
+              components={{
+                a: ({
+                  href,
+                  children,
+                }) => {
+                  const isPdfLink =
+                    href?.includes(
+                      "/api/documents/pdf"
+                    );
+
+                  return (
+                    <a
+                      href={href}
+                      target={
+                        isPdfLink
+                          ? "_blank"
+                          : undefined
+                      }
+                      rel={
+                        isPdfLink
+                          ? "noopener noreferrer"
+                          : undefined
+                      }
+                      className={
+                        isPdfLink
+                          ? `
+                            mt-3
+                            inline-flex
+                            max-w-full
+                            items-center
+                            gap-2
+                            rounded-lg
+                            bg-[#a51d20]
+                            px-4
+                            py-2
+                            text-sm
+                            font-semibold
+                            text-white
+                            no-underline
+                            transition
+                            hover:bg-[#86181b]
+                          `
+                          : `
+                            font-semibold
+                            text-blue-700
+                            underline
+                            hover:text-blue-900
+                          `
+                      }
+                    >
+                      {children}
+                    </a>
+                  );
+                },
+              }}
+            >
               {text}
             </ReactMarkdown>
           </div>

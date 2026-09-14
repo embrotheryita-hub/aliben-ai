@@ -6,9 +6,6 @@ import {
   useState,
 } from "react";
 
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import MobileHomeButton from "@/components/MobileHomeButton";
 type Stats = {
   pdf: number;
   pages: number;
@@ -49,39 +46,6 @@ const categories = [
 ];
 
 export default function AdminPage() {
-  const router = useRouter();
-const [checkingAccess, setCheckingAccess] =
-  useState(true);
-  useEffect(() => {
-  async function checkAdminAccess() {
-    const supabase = createClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      router.replace("/login");
-      return;
-    }
-
-    const { data: profile, error } =
-      await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-    if (error || profile?.role !== "admin") {
-      router.replace("/");
-      return;
-    }
-
-    setCheckingAccess(false);
-  }
-
-  checkAdminAccess();
-}, [router]);
   const fileInputRef =
     useRef<HTMLInputElement>(null);
 
@@ -103,6 +67,16 @@ const [checkingAccess, setCheckingAccess] =
     editingProduct,
     setEditingProduct,
   ] = useState<string | null>(null);
+
+  const [
+    editingName,
+    setEditingName,
+  ] = useState<string | null>(null);
+
+  const [
+    editingValue,
+    setEditingValue,
+  ] = useState("");
 
   const [category, setCategory] =
     useState("schede-tecniche");
@@ -400,40 +374,14 @@ const [checkingAccess, setCheckingAccess] =
   */
   async function handleProductNameChange(
     file: string,
-    currentName: string
+    productName: string
   ) {
-    if (
-      editingCategory ||
-      editingProduct
-    ) {
-      return;
-    }
-
-    const newName =
-      window.prompt(
-        "Inserisci il nome del prodotto:",
-        currentName
-      );
-
-    if (newName === null) {
-      return;
-    }
-
-    const trimmedName =
-      newName.trim();
+    const trimmedName = productName.trim();
 
     if (!trimmedName) {
       alert(
         "Il nome del prodotto non può essere vuoto."
       );
-
-      return;
-    }
-
-    if (
-      trimmedName ===
-      currentName
-    ) {
       return;
     }
 
@@ -450,21 +398,18 @@ const [checkingAccess, setCheckingAccess] =
           },
           body: JSON.stringify({
             file,
-            productName:
-              trimmedName,
+            productName: trimmedName,
           }),
         }
       );
 
-      const data =
-        await res.json();
+      const data = await res.json();
 
       if (!res.ok) {
         alert(
           data.message ||
             "Errore durante la modifica del nome."
         );
-
         return;
       }
 
@@ -580,16 +525,6 @@ const [checkingAccess, setCheckingAccess] =
         );
       }
     );
-if (checkingAccess) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-100">
-      <div className="text-sm font-medium text-gray-500">
-        Controllo accesso...
-      </div>
-    </main>
-  );
-}
-
 
   return (
     <main className="min-h-screen bg-gray-100 p-8">
@@ -600,7 +535,7 @@ if (checkingAccess) {
 
       {/* CARICAMENTO / INDICIZZAZIONE / STATISTICHE */}
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-4">
 
         {/* DOCUMENTI */}
 
@@ -736,6 +671,33 @@ if (checkingAccess) {
             </li>
 
           </ul>
+
+        </div>
+
+        {/* CLIENTI */}
+
+        <div className="rounded-xl bg-white p-6 shadow">
+
+          <h2 className="text-2xl font-semibold">
+            👥 Clienti
+          </h2>
+
+          <p className="mt-3 text-gray-600">
+            Gestisci i clienti e apri
+            direttamente le conversazioni
+            con ALIBEN AI.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href =
+                "/clienti";
+            }}
+            className="mt-6 rounded bg-red-700 px-4 py-2 text-white hover:bg-red-800"
+          >
+            👥 Apri Clienti
+          </button>
 
         </div>
 
@@ -902,28 +864,79 @@ if (checkingAccess) {
                             🏷️
                           </span>
 
-                          <button
-                            onClick={() =>
-                              handleProductNameChange(
-                                document.file,
-                                document.productName
-                              )
-                            }
-                            disabled={
-                              editingProduct ===
-                                document.file ||
-                              editingCategory !==
-                                null
-                            }
-                            className="text-left text-sm font-medium text-gray-700 hover:text-blue-600 hover:underline disabled:cursor-not-allowed"
-                          >
-                            {
-                              editingProduct ===
-                              document.file
-                                ? "Salvataggio..."
-                                : document.productName
-                            }
-                          </button>
+                          {editingName === document.file ? (
+                            <div className="flex w-full max-w-xl items-center gap-2">
+                              <input
+                                type="text"
+                                value={editingValue}
+                                onChange={(event) =>
+                                  setEditingValue(
+                                    event.target.value
+                                  )
+                                }
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    void handleProductNameChange(
+                                      document.file,
+                                      editingValue
+                                    );
+                                    setEditingName(null);
+                                  }
+
+                                  if (event.key === "Escape") {
+                                    setEditingName(null);
+                                  }
+                                }}
+                                autoFocus
+                                className="min-w-0 flex-1 rounded border border-blue-400 bg-white px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+                              />
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void handleProductNameChange(
+                                    document.file,
+                                    editingValue
+                                  );
+                                  setEditingName(null);
+                                }}
+                                disabled={editingProduct === document.file}
+                                className="shrink-0 rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {editingProduct === document.file
+                                  ? "Salvataggio..."
+                                  : "💾 Salva"}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setEditingName(null)
+                                }
+                                disabled={editingProduct === document.file}
+                                className="shrink-0 rounded bg-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                Annulla
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingName(document.file);
+                                setEditingValue(
+                                  document.productName || ""
+                                );
+                              }}
+                              disabled={
+                                editingProduct !== null ||
+                                editingCategory !== null
+                              }
+                              className="text-left text-sm font-medium text-gray-700 hover:text-blue-600 hover:underline disabled:cursor-not-allowed"
+                            >
+                              {document.productName}
+                            </button>
+                          )}
 
                         </div>
 
@@ -1053,7 +1066,7 @@ if (checkingAccess) {
         </div>
 
       </section>
-<MobileHomeButton />
+
     </main>
   );
 }

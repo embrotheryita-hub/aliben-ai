@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import DesktopSidebar from "@/components/DesktopSidebar";
@@ -248,6 +248,29 @@ export default function Home() {
       (chat) =>
         chat.id === activeChatId
     ) || null;
+
+  /*
+  ========================================
+  SCROLL CHAT
+  ========================================
+  */
+
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!activeChat) {
+      return;
+    }
+
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }, [
+    activeChatId,
+    activeChat?.messages.length,
+    isTyping,
+  ]);
 
   /*
   ========================================
@@ -1175,11 +1198,7 @@ export default function Home() {
                 )}
 
                 {activeChat &&
-                  [
-                    ...activeChat.messages,
-                  ]
-                    .reverse()
-                    .map(
+                  activeChat.messages.map(
                       (
                         message,
                         index
@@ -1198,6 +1217,8 @@ export default function Home() {
                         />
                       )
                     )}
+
+                <div ref={messagesEndRef} />
 
               </div>
 

@@ -4,7 +4,7 @@ import path from "path";
 import db from "@/lib/database";
 import { createClient } from "@/lib/supabase/server";
 const allowedCategories = [
-  "scheda-tecnica",
+  "schede-tecniche",
   "catalogo",
   "ricettario",
   "manuale",
