@@ -803,19 +803,22 @@ const broadProductLookup =
     ========================================
   */
 
-  const documents =
-    db.prepare(`
-      SELECT
-        id,
-        file,
-        page,
-        text,
-        embedding,
-        source_hash,
-        created_at,
-        category
-      FROM documents
-    `).all() as DocumentRow[];
+  // IMPORTANTE PER RENDER: non carichiamo tutti gli 8300+ documenti
+  // in memoria con .all(). better-sqlite3 deve restituire tutte le
+  // stringhe (testo + embedding) contemporaneamente e Node può andare OOM.
+  // Iteriamo una riga alla volta e conserviamo solo i migliori candidati.
+  const documentsStmt = db.prepare(`
+    SELECT
+      id,
+      file,
+      page,
+      text,
+      embedding,
+      source_hash,
+      created_at,
+      category
+    FROM documents
+  `);
 
   /*
     ========================================
@@ -850,9 +853,27 @@ const broadProductLookup =
     ========================================
   */
 
-  const results =
-    documents.map(
-      (document) => {
+  const MAX_RANKED_RESULTS = 300;
+  const results: Array<{
+    file: string;
+    page: number;
+    text: string;
+    score: number;
+    semanticScore: number;
+    nameScore: number;
+    contentScore: number;
+    contentIdentity: number;
+    directContentMatch: boolean;
+    category: string;
+    productName: string;
+  }> = [];
+
+  let totalResults = 0;
+  let strongResultsCount = 0;
+  let mediumResultsCount = 0;
+
+  for (const document of documentsStmt.iterate() as Iterable<DocumentRow>) {
+    totalResults++;
         const embedding =
           JSON.parse(
             document.embedding
@@ -1163,7 +1184,7 @@ if (directProductMatch) {
             1
           );
 
-        return {
+        const result = {
           file: document.file,
           page: document.page,
           text: document.text,
@@ -1180,8 +1201,24 @@ if (directProductMatch) {
 
           productName,
         };
-      }
-    );
+
+        if (finalScore >= 0.60 || contentScore >= 0.45) {
+          strongResultsCount++;
+        }
+        if (finalScore >= 0.50) {
+          mediumResultsCount++;
+        }
+
+        // Manteniamo solo i migliori candidati: il resto non può entrare
+        // nella selezione finale e non deve rimanere in memoria.
+        if (results.length < MAX_RANKED_RESULTS) {
+          results.push(result);
+          results.sort((a, b) => b.score - a.score);
+        } else if (finalScore > results[results.length - 1].score) {
+          results[results.length - 1] = result;
+          results.sort((a, b) => b.score - a.score);
+        }
+  }
 
   /*
     ========================================
@@ -1335,14 +1372,11 @@ if (directProductMatch) {
 
       broadProductLookup,
 
-      totalResults:
-        results.length,
+      totalResults,
 
-      strongResults:
-        strongResults.length,
+      strongResults: strongResultsCount,
 
-      mediumResults:
-        mediumResults.length,
+      mediumResults: mediumResultsCount,
 
       selectedResults:
         selected.length,
