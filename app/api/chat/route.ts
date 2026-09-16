@@ -2059,6 +2059,26 @@ REGOLE FINALI
               (a.score || 0)
           );
 
+      /*
+        Per una richiesta normale il primo risultato
+        tecnico della Knowledge Base è già il documento
+        più pertinente restituito dalla ricerca.
+
+        Il vecchio matching sulla risposta GPT era troppo
+        restrittivo: se il nome prodotto era un codice,
+        abbreviato o scritto in modo diverso, il PDF non
+        veniva aggiunto anche se la ricerca aveva trovato
+        correttamente la scheda.
+
+        Quindi:
+        1. proviamo prima il matching esplicito con la risposta;
+        2. se non trova nulla, usiamo il miglior risultato
+           tecnico della ricerca.
+
+        NON cambiamo la ricerca e NON aggiungiamo PDF
+        che non siano presenti nei risultati tecnici.
+      */
+
       const matchedTechnicalSheets =
         technicalResults
           .map((result) => ({
@@ -2118,6 +2138,25 @@ REGOLE FINALI
         ) {
           break;
         }
+      }
+
+      /*
+        FALLBACK:
+        se la risposta GPT non contiene abbastanza del nome
+        della scheda, prendiamo comunque il miglior risultato
+        tecnico della ricerca.
+
+        Questo è il caso che ci interessa per "mimosa":
+        la KB ha trovato la scheda, ma il controllo sul testo
+        finale può non riconoscere il nome.
+      */
+      if (
+        selectedTechnicalSheets.length === 0 &&
+        technicalResults.length > 0
+      ) {
+        selectedTechnicalSheets.push(
+          technicalResults[0]
+        );
       }
     }
 
